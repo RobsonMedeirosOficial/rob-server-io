@@ -23,7 +23,7 @@ io.on('connection', (socket) => {
       console.log('Received: ' + data);	
       //socket.this.$emit('event-name', param);
       
-      socket.emit('SERVER', data);
+      socket.emit('SERVER', soma.toString());
       soma++
     });
 
