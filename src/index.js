@@ -12,6 +12,7 @@ const io = require('socket.io')(process.env.PORT || 3000, { //8124 is the local 
 });
 
 let soma=0
+let msgList=[]
 // App Code starts here
 console.log('Server is running!');
 
@@ -22,8 +23,12 @@ io.on('connection', (socket) => {
     socket.on('CLIENT', (data) => {
       console.log('Received: ' + data);	
       //socket.this.$emit('event-name', param);
+      msgList.push(data)
+      for (let i = 0; i < msgList.length; i++) {
+        socket.emit('SERVER',msgList[i]);
+        
+      }
       
-      socket.emit('SERVER', data);
       soma++
     });
 
