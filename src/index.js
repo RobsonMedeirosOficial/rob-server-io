@@ -18,18 +18,11 @@ console.log('Server is running!');
 
 io.on('connection', (socket) => {
 	var cnt = 0;
-	// console.log('Conected: ' + socket.id);	
-	// console.log('Received: ' + socket.Date);	
     socket.on('CLIENT', (data) => {
       console.log('Received: ' + data);	
-      //socket.this.$emit('event-name', param);
-      msgList.push(data)
-      for (let i = 0; i < msgList.length; i++) {
-        socket.emit('SERVER',msgList[i]);
-        
-      }
+
+      socket.broadcast.emit("msgUpdate", data);
       
-      soma++
     });
 
 	socket.on('disconnect', (reason) => {
