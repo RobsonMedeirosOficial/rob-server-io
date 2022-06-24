@@ -102,7 +102,9 @@ io.on('connection', (socket) => {
                 x:0.0,
                 y:0.0,
                 z:0.0
-            }
+            },
+            v:0,
+            h:0
         }
 
         for (let i = 0; i < Object.keys(playerList).length; i++) {
@@ -114,10 +116,11 @@ io.on('connection', (socket) => {
 
         
         d.pos=data.pos;
-
+        d.v=data.v;
+        d.h=data.h;
         socket.broadcast.emit('player_pos',d);
         //io.to('room1').emit('player_pos',d);
-        ///////////////////////////////console.log('player_pos: ' +JSON.stringify(d));	
+        console.log('player_pos: ' +JSON.stringify(d));	
     });
 
     socket.on('player_rot', async(data) => {
@@ -125,7 +128,9 @@ io.on('connection', (socket) => {
 
         const r={
             ID:0,
-            rot:0.0
+            rot:0.0,
+            pitch:0.0
+
         }
 
 
@@ -133,13 +138,14 @@ io.on('connection', (socket) => {
             const p = playerList[i];
             if (p.socketID==socket.id) {
                 r.ID=p.ID;
+               
             }
         }
 
 
         r.ID=data.ID;
         r.rot=data.rot;
-
+        r.pitch=data.pitch;
         socket.broadcast.emit('player_rot',r);
         //io.to('room1').emit('player_rot',r);
         ///////////////////////////////////////////console.log('player_rot: ' +JSON.stringify(r));	
