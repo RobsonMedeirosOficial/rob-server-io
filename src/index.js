@@ -120,7 +120,7 @@ io.on('connection', (socket) => {
         d.h=data.h;
         socket.broadcast.emit('player_pos',d);
         //io.to('room1').emit('player_pos',d);
-        console.log('player_pos: ' +JSON.stringify(d));	
+        ///////////////////////////////////////////////////////////console.log('player_pos: ' +JSON.stringify(d));	
     });
 
     socket.on('player_rot', async(data) => {
