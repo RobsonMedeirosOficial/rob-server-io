@@ -102,9 +102,9 @@ io.on('connection', (socket) => {
                 x:0.0,
                 y:0.0,
                 z:0.0
-            },
-            v:0,
-            h:0
+            }//,
+            // v:0,
+            // h:0
         }
 
         for (let i = 0; i < Object.keys(playerList).length; i++) {
@@ -116,8 +116,8 @@ io.on('connection', (socket) => {
 
         
         d.pos=data.pos;
-        d.v=data.v;
-        d.h=data.h;
+        // d.v=data.v;
+        // d.h=data.h;
         socket.broadcast.emit('player_pos',d);
         //io.to('room1').emit('player_pos',d);
         ///////////////////////////////////////////////////////////console.log('player_pos: ' +JSON.stringify(d));	
@@ -151,6 +151,34 @@ io.on('connection', (socket) => {
         ///////////////////////////////////////////console.log('player_rot: ' +JSON.stringify(r));	
     });
 
+    socket.on('player_anims', async(data) => {
+        
+
+        const a={
+            ID:0,
+            v:0,
+            h:0
+
+        }
+
+
+        for (let i = 0; i < Object.keys(playerList).length; i++) {
+            const p = playerList[i];
+            if (p.socketID==socket.id) {
+                a.ID=p.ID;
+               
+            }
+        }
+
+
+        a.ID=data.ID;
+        a.v=data.v;
+        a.h=data.h;
+        socket.broadcast.emit('player_anims',a);
+        ////////////////////////////////////////////console.log('player_anims: ' +JSON.stringify(a));
+        //io.to('room1').emit('player_rot',r);
+        ///////////////////////////////////////////console.log('player_rot: ' +JSON.stringify(r));	
+    });
 // Ao detectar disconexão remover o socket da lista playerList
 	socket.on('disconnect', (reason) => {
         console.log("============================================================================================");
