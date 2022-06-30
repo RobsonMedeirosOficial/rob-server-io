@@ -3,16 +3,37 @@ const io = require('socket.io')(process.env.PORT || 3000, { //8124 is the local 
 });
 
 
-socketIDList=[];
+// Inicializa variáveis ==========================================================
 playerList=[];
 usedID=[0]
 player={
     ID:0,
-    socketID:0
+    socketID:0,
+    heath:100
 }
 
-console.log("playerList amount: "+Object.keys(playerList).length);
+playerProperty={
+socketID:"",
+ID:0000,
+lv:1,
+exp:0,
+victories:0,
+defeats:0,
+heath:100
 
+
+
+}
+
+weapons={
+    ID:1,
+    name:"none",
+    damage:30,
+    ammo:30,
+}
+
+//console.log("playerList amount: "+Object.keys(playerList).length);
+//================================================================================
 function GeneratorID(){
     ID=Math.floor(Math.random() * 9999);
     console.log("Getting ID...");
@@ -55,17 +76,17 @@ io.on('connection', (socket) => {
             if (isInList==false) {
                 //socketIDList.push(socket.id);
                 p = {...player};
-                p.socketID=socket.id
+                p.socketID=socket.id;
+                p.health=100;
 
-                p.ID=GeneratorID()
+                p.ID=GeneratorID();
                 playerList.push(p);
                 //io.to('room1').emit('join_remote_player',socket.id);
                 //socket.broadcast.emit("join_remote_player",p);
-                console.log("++ Joined Player: "+ JSON.stringify(p))
+                console.log("++ Joined Player: "+ JSON.stringify(p));
 
                 socket.broadcast.emit("join_remote_player",p);
                 for( var i = 0; i < Object.keys(playerList).length; i++){ 
-                   
                     socket.emit("join_remote_player",playerList[i]);
                 }
             }
@@ -77,6 +98,7 @@ io.on('connection', (socket) => {
         {
             p = {...player};
             p.socketID=socket.id
+            p.health=100;
 
             p.ID=GeneratorID()
             playerList.push(p);
@@ -123,6 +145,87 @@ io.on('connection', (socket) => {
         ///////////////////////////////////////////////////////////console.log('player_pos: ' +JSON.stringify(d));	
     });
 
+    socket.on('player_shoot', async (data) => {
+        
+
+        const d={
+            ID:0,
+            point:{
+                x:0.0,
+                y:0.0,
+                z:0.0
+            }//,
+            // v:0,
+            // h:0
+        }
+
+        for (let i = 0; i < Object.keys(playerList).length; i++) {
+            const p = playerList[i];
+            if (p.socketID==socket.id) {
+                d.ID=p.ID;
+            }
+        }
+
+        
+        d.point=data.point;
+        // d.v=data.v;
+        // d.h=data.h;
+        socket.broadcast.emit('player_shoot',d);
+        console.log('Player shooting: '+JSON.stringify(d));
+        //io.to('room1').emit('player_pos',d);
+        ///////////////////////////////////////////////////////////console.log('player_pos: ' +JSON.stringify(d));	
+    });
+    socket.on('player_hit', async (data) => {
+        
+        // recebe ID de quem foi atingido e cadastra o id de quem atingiu 
+        const d={
+            hit_ID:0,
+            shoot_ID:0,
+            health:100
+            
+        }
+
+        for (let i = 0; i < Object.keys(playerList).length; i++) {
+            const p = playerList[i];
+            if (p.socketID==socket.id) {
+                d.hit_ID=data.hit_ID;
+                d.shoot_ID=p.ID;
+                
+                for (let j = 0; j < Object.keys(playerList).length; j++){
+                    const pp = playerList[j];
+                    if (pp.ID==d.hit_ID) {
+
+                        pp.health-=30;
+                        if (pp.health<=0) {
+                            pp.health=0;
+                        }
+                        d.health=pp.health
+                        console.log('Player hitting =================: '+JSON.stringify(pp));
+
+                    }
+                }
+                
+            }
+        }
+
+        
+        d.point=data.point;
+        // d.v=data.v;
+        // d.h=data.h;
+        socket.broadcast.emit('player_hit',d);
+        socket.emit('player_hit',d);
+        console.log('Player hitting: '+JSON.stringify(d));
+
+        if (d.health==0) {
+            d.health=100;
+            socket.emit('player_respawn',d);
+            socket.broadcast.emit('player_respawn',d);
+        }
+        //io.to('room1').emit('player_pos',d);
+        ///////////////////////////////////////////////////////////console.log('player_pos: ' +JSON.stringify(d));	
+    });
+    
+    
     socket.on('player_rot', async(data) => {
         
 
@@ -175,7 +278,7 @@ io.on('connection', (socket) => {
         a.v=data.v;
         a.h=data.h;
         socket.broadcast.emit('player_anims',a);
-        ////////////////////////////////////////////console.log('player_anims: ' +JSON.stringify(a));
+        console.log('player_anims: ' +JSON.stringify(a));
         //io.to('room1').emit('player_rot',r);
         ///////////////////////////////////////////console.log('player_rot: ' +JSON.stringify(r));	
     });
@@ -185,8 +288,13 @@ io.on('connection', (socket) => {
         console.log("SocketID: "+socket.id);
         for( var i = 0; i < Object.keys(playerList).length; i++){ 
             socket.broadcast.emit("remove_remote_player",socket.id);
+
+
             if ( playerList[i].socketID === socket.id) { 
     
+                if (usedID.includes(playerList[i].ID)) {
+                    usedID.splice(playerList[i].ID,1);
+                }
                 playerList.splice(i, 1); 
             }
         
