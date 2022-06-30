@@ -214,7 +214,7 @@ io.on('connection', (socket) => {
         console.log('Player hitting: '+JSON.stringify(d));
 
         if (d.health==0) {
-            d.health=100;
+            d.health=1000;
             socket.emit('player_respawn',d);
             socket.broadcast.emit('player_respawn',d);
         }
