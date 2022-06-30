@@ -44,7 +44,6 @@ function GeneratorID(){
     console.log("New ID: "+ID)
     usedID.push(ID)
     return ID;
-
 }
 
 
@@ -112,8 +111,6 @@ io.on('connection', (socket) => {
         console.log("============================================================================================");
 
     });
-
-
 
     socket.on('player_pos', async (data) => {
         
