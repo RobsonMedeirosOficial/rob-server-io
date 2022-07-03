@@ -7,7 +7,7 @@ var Player={
     socketID:'',
     roomID:0000,
     lobbyID:0000,
-    isDone:false,
+    isReady:false,
     name:'',
     points:0,
     victories:0,
@@ -51,7 +51,7 @@ var Room={
     ID:0,
     name:'',
     playerMax:10,
-    pList:[]
+    playerList:[]
 }
 var Lobby={
     ID:0,
@@ -60,6 +60,11 @@ var Lobby={
 }
 var roomList=[];
 var lobbyList=[];
+
+var serverInfo={
+    playersOnline:0,
+    roomsRunning:0,
+}
 //================================================================================
 function GeneratorID(){
     ID=Math.floor(Math.random() * 9999);
@@ -114,7 +119,69 @@ io.on('connection', (socket) => {
         console.log(JSON.stringify(room));
     });
     
-// Ao detectar disconexão remover o socket da lista playerList
+    //Atualiza numero de players online
+    serverInfo.playersOnline=playerList.length;
+    socket.emit("server_info",serverInfo);
+    socket.broadcast.emit("server_info",serverInfo);
+
+    socket.on('player_connect', (data) => {
+        playerList.forEach(player => {
+            if (player.socketID==socket.id) {
+                player.bullIDList.push(data.bullIDList[0]);
+                player.selectedBullID=data.selectedBullID;
+                if (playerList.length==1) {
+                    let room = {...Room};
+                    room.ID=player.ID;
+                    room.playerList=[];
+                    room.playerList.push(player);
+                    room.name=player.name+'_Room'
+                    roomList.push(room);
+                    player.roomID=room.ID;
+                    socket.emit('player_joined_room',player)
+                }
+                else
+                {
+                    let isInRoom=false;
+                    roomList.forEach(_room => {
+                        if (_room.playerList.length < _room.playerMax) {
+                            _room.playerList.forEach(pl => {
+                                if (pl.ID==player.ID) {
+                                    isInRoom=true;
+                                }
+                            });
+
+                            if (!isInRoom) {
+                                _room.playerList.push(player);
+                                player.roomID=_room.ID;
+                                socket.emit('player_joined_room',player)
+                                socket.broadcast.emit('player_joined_room',player)
+                            }
+                        }
+                    });
+                }
+                player.isReady=true;
+                console.log('>>>>>>>>>>>>>>>>>>>>>>>>');
+                console.log(JSON.stringify(player));
+                socket.emit('player_connected',player);
+                socket.broadcast.emit('player_connected',player);
+            }
+        });
+
+        console.log("============================================================================================");
+        console.log('RoomList('+roomList.length+'):');
+        roomList.forEach(room => {
+            console.log('<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>');
+            console.log(JSON.stringify(room))
+        });
+
+    });
+    socket.on('player_connect', (reason) => {
+
+
+    });
+
+
+
 	socket.on('disconnect', (reason) => {
         console.log("============================================================================================");
         console.log("Um player desconectou-se SocketID: "+socket.id);
@@ -180,7 +247,12 @@ io.on('connection', (socket) => {
         roomList.forEach(room => {
             console.log('>>>>>>>>>>>>>>>>>>>>>>>>');
             console.log(JSON.stringify(room));
-    });
+        });
+
+                //Atualiza numero de players online
+                serverInfo.playersOnline=playerList.length;
+                // socket.emit("server_info",serverInfo);
+                socket.broadcast.emit("server_info",serverInfo);
 
 	});
 
