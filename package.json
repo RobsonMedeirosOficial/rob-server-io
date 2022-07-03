@@ -4,6 +4,7 @@
   "description": "Example server for Unity Socket.IO v3/v4 Asset",
   "author": "Firesplash Entertainment <support@firesplash.de>",
   "main": "server.js",
+  "type":"commonjs",
   "scripts": {
     "start": "node src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
