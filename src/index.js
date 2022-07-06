@@ -1,5 +1,10 @@
+const { emit } = require('process');
+
 const io = require('socket.io')(process.env.PORT || 3000, { //8124 is the local port we are binding the pingpong server to
 });
+
+
+var socketList=[]
 var usedID=[0]
 var playerList=[];
 var Player={
@@ -50,7 +55,7 @@ var GameMode={
 var Room={
     ID:0,
     name:'',
-    playerMax:10,
+    playerMax:2,
     playerList:[]
 }
 var Lobby={
@@ -68,193 +73,303 @@ var serverInfo={
 //================================================================================
 function GeneratorID(){
     ID=Math.floor(Math.random() * 9999);
-    console.log("Getting ID...");
+    //console.log("GeneratorID ============================================================================================");
+    //console.log("Gerando ID...");
     while (usedID.includes(ID)) {
        ID=Math.floor(Math.random() * 9999);
     }
-    console.log("New ID: "+ID)
+    //console.log("Novo ID: "+ID)
     usedID.push(ID)
     return ID;
+}
+function GetIndex(array, value){
+    var index=undefined;
+
+    for (let i = 0; i < array.length; i++) {
+        const element = array[i];
+        if (element==value) {
+            index=i;
+            break;
+        }
+        
+    }
+
+    return index;
+}
+
+function DebugLog(title=''){
+    console.log(title+" %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
+    console.log("ROOMs ============================================================================================");
+    roomList.forEach(room => {
+        
+        console.log("\nRoom: "+room.name+"(ID"+room.ID+")"+"("+room.playerList.length+")");
+        room.playerList.forEach(player => {
+            if (player.roomID == room.ID) {
+                console.log("@@@@ Player: "+player.name+"(ID"+player.ID+")");
+            }
+            else{
+                console.log(">>>> Player: "+player.name+"(ID"+player.ID+")");
+            }
+        });
+    });
+
+    console.log("PLAYERs ============================================================================================");
+    playerList.forEach(player => {
+        
+        console.log("\nPlayer: "+player.name+"(ID"+player.ID+")"+"(RoomID: "+player.roomID+")");
+    });
+}
+
+function Server_info(){
+    serverInfo.playersOnline=playerList.length;
+    serverInfo.roomsRunning=0;
+
+    return serverInfo;
+
+}
+
+function GetPlayerFromID(ID){
+    var p = undefined;
+    playerList.forEach(player => {
+        if (player.ID==ID) {
+            p=player;
+            return false;
+        }
+    });  
+    return p;
+}
+
+function GetRoomFromID(ID){
+    var r = undefined;
+    roomList.forEach(room => {
+        if (room.ID==ID) {
+            r=room;
+            return false;
+        }
+    });  
+    return r;
+}
+
+function RemoveInactiveRoom(socket){
+    roomList.forEach(room=>{
+        var player=GetPlayerFromID(room.ID);
+
+        if (!player && room.playerList.length<=0) {
+            console.log("\n\nRemovendo inactive room: "+JSON.stringify(room));
+            roomList.splice(GetIndex(roomList,room),1);
+            socket.emit("room_remove",room);
+            socket.broadcast.emit("room_remove",room);
+        }
+        
+
+    })
+}
+
+function RoomUpdate(socket, deletID=''){
+    roomList.forEach(room => {
+        if(deletID=='') {
+            
+
+        }else{
+            
+            socket.emit("room_remove");
+            socket.broadcast.emit("room_remove");
+            return false;
+        }
+
+        console.log("ROOMs: "+roomList.length+"  =============================================");
+
+    });
+}
+
+function CreateRoom(ID, name, playerMax){
+    //console.log("CreateRoom ================================================");
+    //console.log("ID: "+ID+"  Name: "+name+"  PlayerMax: "+playerMax);
+    var r=undefined;
+    if(!GetRoomFromID(ID)){
+        let room = {...Room};
+        //console.log("ROOM: "+JSON.stringify(room));
+        room.ID=ID;
+        room.name=name;
+        room.playerMax=playerMax;
+        roomList.push(room);
+        r=room;
+    }
+    return r;
+}
+
+function JoinRoom(playerID,roomID, socket){
+
+   
 }
 
 io.on('connection', (socket) => {
 
-    //socket.join('room1');
-    console.log("============================================================================================");
-    console.log('Um novo player se conectou, socketID: '+socket.id);
-    let ID = GeneratorID();
-    let player = {...Player};
-    player.socketID=socket.id;
-    player.ID=ID;
-    playerList.push(player)
+    console.log("\n\nconnection ============================================================================================");
     
-    let lobby ={...Lobby};
-    lobby.ID=ID;
-    lobby.name=player.name;
-    lobby.playerList=[]
-    lobby.playerList.push(player);
+    //#region 1) Preparação e integração do player ao servidor ----------------------------------------------------------------------
+    // Primeiro verificamos se o socket.id está na scokeList se não estiver adicione e registre o player
+    if (!socketList.includes(socket.id)) {
+        socketList.push(socket.id);
+        //console.log('Um novo player se conectou, socketID: ');
+        console.log('\n\nUm novo player se conectou, socketID: '+socket.id);
+        // Solicitar registro de dados do player
+        socket.emit("player_register");
+    }
+    
+    // Aqui vamos cadastrar o player e criar um lobby para ele
+    socket.on('player_register', (data) => {
+        console.log("\n\player_register  ===========================================================");
+        console.log(data);
 
-    player.lobbyID=lobby.ID;
-    
-    lobbyList.push(lobby);
-    let room ={...Room}
-    
+        if (socketList.includes(socket.id) && data.ID=='') {
+            let ID = GeneratorID();
+            let player = {...Player};
+            player.socketID=socket.id;
+            player.ID=ID;
+            player.name=data.name;
+            player.selectedBullID=data.selectedBullID;
+            player.bullIDList=data.bullIDList;
+            playerList.push(player);
+            console.log("\n\nplayer_register ============================================================================================");
+            console.log("O player: "+player.name+"("+player.ID+")"+" foi registrado.");
+            socket.emit("successfully_registered",player)
+            socket.emit("server_info",Server_info());
+            socket.broadcast.emit("server_info",Server_info());
 
-    console.log("============================================================================================");
-    console.log('PlayerList('+playerList.length+'):');
-    playerList.forEach(player => {
-        console.log('>>>>>>>>>>>>>>>>>>>>>>>>');
-        console.log(JSON.stringify(player));
+
+            // socket.emit("room_update",room);
+            // socket.broadcast.emit("room_update",room);
+        }
     });
-    console.log("============================================================================================");
-    console.log('LobbyList('+lobbyList.length+'):');
-    lobbyList.forEach(lobby => {
-        console.log('>>>>>>>>>>>>>>>>>>>>>>>>');
-        console.log(JSON.stringify(lobby));
-    });
-    console.log("============================================================================================");
-    console.log('RoomList('+roomList.length+'):');
-    roomList.forEach(room => {
-        console.log('>>>>>>>>>>>>>>>>>>>>>>>>');
-        console.log(JSON.stringify(room));
-    });
+    //#endregion
     
-    //Atualiza numero de players online
-    serverInfo.playersOnline=playerList.length;
-    socket.emit("server_info",serverInfo);
-    socket.broadcast.emit("server_info",serverInfo);
 
-    socket.on('player_connect', (data) => {
-        playerList.forEach(player => {
-            if (player.socketID==socket.id) {
-                player.bullIDList.push(data.bullIDList[0]);
-                player.selectedBullID=data.selectedBullID;
-                if (playerList.length==1) {
-                    let room = {...Room};
-                    room.ID=player.ID;
-                    room.playerList=[];
-                    room.playerList.push(player);
-                    room.name=player.name+'_Room'
-                    roomList.push(room);
-                    player.roomID=room.ID;
-                    socket.emit('player_joined_room',player)
-                }
-                else
-                {
-                    let isInRoom=false;
-                    roomList.forEach(_room => {
-                        if (_room.playerList.length < _room.playerMax) {
-                            _room.playerList.forEach(pl => {
-                                if (pl.ID==player.ID) {
-                                    isInRoom=true;
-                                }
-                            });
+    socket.on('player_create_room', (data) => {
+        console.log("\n\nplayer_create_room  ===========================================================");
+        console.log(data);
+        var room = GetRoomFromID(data.ID);
+        var player = GetPlayerFromID(data.ID);
 
-                            if (!isInRoom) {
-                                _room.playerList.push(player);
-                                player.roomID=_room.ID;
-                                socket.emit('player_joined_room',player)
-                                socket.broadcast.emit('player_joined_room',player)
-                            }
-                        }
-                    });
-                }
-                player.isReady=true;
-                console.log('>>>>>>>>>>>>>>>>>>>>>>>>');
-                console.log(JSON.stringify(player));
-                socket.emit('player_connected',player);
-                socket.broadcast.emit('player_connected',player);
+        if (!room && player) {
+            room=data;
+            // Minimo e maximo de player correção
+            if(room.playerMax>10){
+                room.playerMax=10;
             }
-        });
+            if(room.playerMax<2){
+                room.playerMax=2;
+            }
+            roomList.push(room)
+            socket.emit("room_update",room);
+            socket.broadcast.emit("room_update",room);
 
-        console.log("============================================================================================");
-        console.log('RoomList('+roomList.length+'):');
+            
+        }
+
+        console.log("\nNOVA ROOM, ROOMLIST: "+roomList.length);
+        console.log(room);
+
+    });
+
+
+    socket.on('player_join_room', (data) => {
+        console.log("\n\nplayer_join_room  ===========================================================");
+        console.log(data);
+        var room = GetRoomFromID(data.roomID);
+        var player = GetPlayerFromID(data.playerID);
+        var roomPlayerList = [];
+        var room2;
+
+
+
+
+
+
+
+        if(room){
+            roomPlayerList = room.playerList;
+        }
+
+        if (player && room  && roomPlayerList.length < room.playerMax) {
+            
+            roomList.forEach(rm => {
+                if (rm!=room && rm.playerList.includes(player.ID)) {
+                    room2 = rm;
+                }
+            });
+
+
+            if (!roomPlayerList.includes(player.ID)) {
+                roomPlayerList.push(player.ID);
+                if(room2){
+                    room2.playerList.splice(GetIndex(room2.playerList,player.ID),1);
+                }
+                
+            }
+
+        }
+
+        if(room2){
+            socket.emit("room_update",room2);
+            socket.broadcast.emit("room_update",room2);
+        }
+
+        socket.emit("room_update",room);
+        socket.broadcast.emit("room_update",room);
+
+
+        //socket.emit("player_room_update",player);
+        //socket.broadcast.emit("room_update",player);
+
+
+    });
+    
+    socket.on('player_update_rooms', (data) => {
+        console.log("\n\nplayer_update_rooms  ===========================================================");
+        console.log(data);
+        
         roomList.forEach(room => {
-            console.log('<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>');
-            console.log(JSON.stringify(room))
+            socket.emit("room_update",room);
         });
 
     });
-    socket.on('player_connect', (reason) => {
 
-
-    });
 
 
 
 	socket.on('disconnect', (reason) => {
-        console.log("============================================================================================");
-        console.log("Um player desconectou-se SocketID: "+socket.id);
-
-
-        playerList.forEach(player => {
-            console.log("============================================================================================");
-            if (player.socketID==socket.id) {
-                roomList.forEach(room => {
-                    if (room.ID=player.ID) {
-                        room.playerList.splice(player,1); 
-                        if(room.playerList.length){
-                            room.ID=room.playerList[0].ID;
-                            console.log('Novo dono da room: '+JSON.stringify(player));                       
-                            console.log('Room('+room.playerList.length+'): '+JSON.stringify(room));
-                        } 
-                        roomList.splice(room,1); 
-                        return false;                       
-                    }
-                });
-
-                console.log("============================================================================================");
-                lobbyList.forEach(lobby => {
-                    if (lobby.ID=player.ID) {
-                        lobby.playerList.splice(player,1);
-                        if(lobby.playerList.length){
-                            lobby.ID=lobby.playerList[0].ID;
-                            console.log('Novo dono do lobby: '+JSON.stringify(player));                       
-                            console.log('Lobby('+lobby.playerList.length+'): '+JSON.stringify(lobby));
-
-                        }
-                        
-                        lobbyList.splice(lobby,1); 
-                        return false;                       
-                    }
-                });
-                playerList.splice(player, 1);
-                return false;
+        console.log("\n\ndisconnect ============================================================================================");
+        console.log("Desconexão SocketID: "+socket.id);
+        var player;
+        var room;
+        playerList.forEach(pl => {
+            if (pl.socketID==socket.id) {
+                player = pl;
+                return false
             }
         });
 
-        // console.log("============================================================================================");
-        // console.log('PlayerList('+playerList.length+'):' +JSON.stringify(playerList));
-        // console.log("============================================================================================");
-        // console.log('LobbyList('+lobbyList.length+'):' +JSON.stringify(lobbyList));
-        // console.log("============================================================================================");
-        // console.log('RoomList('+roomList.length+'):' +JSON.stringify(roomList));
+        if(player){
+            console.log("O player: "+player.name+"("+player.ID+")"+" foi desconectado.");
+            playerList.splice(GetIndex(playerList,player),1)
+            socketList.splice(GetIndex(socketList,socket.id),1)
 
-        console.log("============================================================================================");
-        console.log('PlayerList('+playerList.length+'):');
-        playerList.forEach(player => {
-            console.log('>>>>>>>>>>>>>>>>>>>>>>>>');
-            console.log(JSON.stringify(player));
-        });
-        console.log("============================================================================================");
-        console.log('LobbyList('+lobbyList.length+'):');
-        lobbyList.forEach(lobby => {
-            console.log('>>>>>>>>>>>>>>>>>>>>>>>>');
-            console.log(JSON.stringify(lobby));
-        });
-        console.log("============================================================================================");
-        console.log('RoomList('+roomList.length+'):');
-        roomList.forEach(room => {
-            console.log('>>>>>>>>>>>>>>>>>>>>>>>>');
-            console.log(JSON.stringify(room));
-        });
+            roomList.forEach(room => {
+                if (room.playerList.includes(player.ID)) {
+                    room.playerList.splice(GetIndex(room.playerList,player.ID),1);
+                    socket.emit("room_update",room);
+                    socket.broadcast.emit("room_update",room);
+                }
+            })
+        }
 
-                //Atualiza numero de players online
-                serverInfo.playersOnline=playerList.length;
-                // socket.emit("server_info",serverInfo);
-                socket.broadcast.emit("server_info",serverInfo);
+        RemoveInactiveRoom(socket);
 
-	});
+        socket.emit("server_info",Server_info());
+        socket.broadcast.emit("server_info",Server_info());
+    });
+
 
 });
 
