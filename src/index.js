@@ -324,7 +324,7 @@ io.on('connection', (socket) => {
 
 
     });
-    
+
     socket.on('player_update_rooms', (data) => {
         console.log("\n\nplayer_update_rooms  ===========================================================");
         console.log(data);
@@ -335,7 +335,21 @@ io.on('connection', (socket) => {
 
     });
 
-
+    socket.on('room_player_list_update',(data)=>{
+        console.log("\n\nroom_player_list_update  ===========================================================");
+        console.log(data);
+        var room = GetRoomFromID(data.roomID);
+        if (room) {
+            room.playerList.forEach(pl =>{
+                var player = GetPlayerFromID(pl);
+                if (player) {
+                    //console.log("\nAdicionando player: "+player.name+"("+player.ID+")"+" na room: "+room.name+"("+room.ID+")");
+                    console.log("\nAdicionando player: "+JSON.stringify(player));
+                    socket.emit("player_room_update",player);
+                }
+            });
+        }
+    })
 
 
 	socket.on('disconnect', (reason) => {
