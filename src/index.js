@@ -236,7 +236,7 @@ function UpdatePlayersInRoom(room){
         
         room.playerList.forEach(ID=>{
             player = GetPlayerFromID(ID);
-            if(player){
+            if(player && !playerList.includes(player) ){
                 playerList.push(player);
             }
         })
@@ -338,7 +338,9 @@ io.on('connection', (socket) => {
             player.selectedBullID=data.selectedBullID;
             player.bullIDList=data.bullIDList;
             player.resource_link=base_link+player.name.replace(" ","_").toLowerCase()+".png"
-            playerList.push(player);
+            if(!playerList.includes(player)){
+                playerList.push(player);
+            }
             //console.log("\nplayer_register ============================================================================================");
             console.log("O player: "+player.name+"("+player.ID+")"+" foi registrado.");
             socket.emit("successfully_registered",player)
@@ -370,7 +372,9 @@ io.on('connection', (socket) => {
                 room.playerMax=2;
             }
             // Adiciona a room na lista de room
-            roomList.push(room)
+            if(!roomList.includes(room)){
+                roomList.push(room)
+            }
 
             // atualiza para este socket e para todos os sockets online o estatus desta room
             socket.emit("room_update",room);
@@ -432,7 +436,9 @@ io.on('connection', (socket) => {
                         if(pl.ID==player.ID){
                             rm.playerList.forEach(pla => {
                                 if (pla.ID!=player.ID) {
-                                    playerListRoom.push(pla);
+                                    if(!playerListRoom.includes(pla)){
+                                        playerListRoom.push(pla);
+                                    }
                                 }
                             });
                             console.log("\n");
@@ -472,7 +478,9 @@ io.on('connection', (socket) => {
                 console.log("("+new Date(Date.now())+")");
                 console.log("O player : "+player.name+"("+player.ID+")"+" entrou na room: "+room.name+"("+room.ID+")");
                 // adiciona o player na lista de players da room
-                room.playerList.push(player);
+                if(!room.playerList.includes(player)){
+                    room.playerList.push(player);
+                }
             }
         }
 
