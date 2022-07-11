@@ -7,9 +7,12 @@ const io = require('socket.io')(process.env.PORT || 3000, { //8124 is the local 
 var socketList=[]
 var usedID=[0]
 var playerList=[];
+var roomList=[];
+var lobbyList=[];
 var Player={
     ID:0,
     socketID:'',
+    resource_link:"",
     roomID:0000,
     lobbyID:0000,
     isReady:false,
@@ -24,6 +27,7 @@ var Player={
     inventory:[],
     bullIDList:[],
     selectedBullID:0000,
+    isLoadedBull:false,
     pos:{
         x:0.0,
         y:0.0,
@@ -36,6 +40,7 @@ var Player={
     }
 }
 var weaponList=[];
+
 var Weapon={
     ID:0,
     name:'',
@@ -56,15 +61,15 @@ var Room={
     ID:0,
     name:'',
     playerMax:2,
-    playerList:[]
+    playerList:[],
+    playerInfoList:[],
+    isRunning:false
 }
 var Lobby={
     ID:0,
     name:'',
     playerList:[]
 }
-var roomList=[];
-var lobbyList=[];
 
 var serverInfo={
     playersOnline:0,
@@ -82,6 +87,7 @@ function GeneratorID(){
     usedID.push(ID)
     return ID;
 }
+
 function GetIndex(array, value){
     var index=undefined;
 
@@ -126,6 +132,32 @@ function Server_info(){
 
     return serverInfo;
 
+}
+
+function EmitRoom(room){
+
+}
+
+function PlayersInRoom(socket){
+    //let playersInRoom=0;
+    console.log("\n");
+    console.log("("+new Date(Date.now())+")");
+    console.log("Buscando em cada room o numero de players...");
+    roomList.forEach(room => {
+        let playersInRoom = room.playerList.length;
+
+        var roomLength = {
+            ID:0,
+            playerList:[],
+            playersInRoom:0
+        }
+
+        roomLength.ID=room.ID;
+        roomLength.playersInRoom=playersInRoom;
+        console.log(">>>> Room: "+room.name+"("+room.ID+")"+" playersInRoom: "+playersInRoom);
+        socket.emit("players_in_room",roomLength)
+        socket.broadcast.emit("players_in_room",roomLength)
+    });
 }
 
 function GetPlayerFromID(ID){
@@ -198,10 +230,83 @@ function CreateRoom(ID, name, playerMax){
     return r;
 }
 
-function JoinRoom(playerID,roomID, socket){
-
-   
+function UpdatePlayersInRoom(room){
+    let playerList=[];
+    if(room){
+        
+        room.playerList.forEach(ID=>{
+            player = GetPlayerFromID(ID);
+            if(player){
+                playerList.push(player);
+            }
+        })
+    }
+    var pList = {
+        ID:0,
+        playerList:[]
+    }
+    if(playerList.length>0){
+        playerList.forEach(player => {
+            pList.ID=room.ID;
+            pList.playerList=playerList;
+            io.to(pla.socketID).emit('room_player_list', pList);
+        });
+    }
 }
+
+function StartGame(room){
+    isLoadedBull=True;
+    room.playerList.forEach(p => {
+        if (!p.isLoadedBull) {
+            isLoadedBull=false;
+        }
+    });
+
+    if(isLoadedBull){
+
+    }
+}
+
+
+function StartMatch(room) {
+    isAllReady = true;
+
+    room.playerList.forEach(player=>{
+        if(!player.isReady){
+            console.log("\n");
+            console.log("("+new Date(Date.now())+")");
+            console.log("A partida foi cancelada!");
+            isAllReady=false;
+            return false;
+        }
+    })
+
+    if(isAllReady){
+
+        // room.playerList.forEach(p => {
+        //     io.socket(p.socketID).join(room.ID);
+        // });
+
+        // room.playerList.forEach(player=>{
+
+        //     io.to(player.socketID).emit('start_match');
+        // })
+
+        
+        io.to(room.ID).emit("start_match");
+        
+        console.log("\n");
+        console.log("("+new Date(Date.now())+")");
+        console.log("A partida começou!");
+
+        setTimeout(() => {
+            console.log("\n");
+            console.log("("+new Date(Date.now())+")");
+            console.log("A room: "+room.name+"("+room.ID+")"+" terminou a partida!");
+          }, 10000)
+    }
+}
+var base_link="https://rmoproducoes.com.br/chaves/";
 
 io.on('connection', (socket) => {
 
@@ -218,8 +323,10 @@ io.on('connection', (socket) => {
     }
     
     // Aqui vamos cadastrar o player e criar um lobby para ele
-    socket.on('player_register', (data) => {
-        console.log("\n\player_register  ===========================================================");
+    socket.on('player_register', async(data) => {
+        console.log("\n");
+        console.log("("+new Date(Date.now())+")");
+        console.log("player_register  ===========================================================");
         console.log(data);
 
         if (socketList.includes(socket.id) && data.ID=='') {
@@ -230,27 +337,29 @@ io.on('connection', (socket) => {
             player.name=data.name;
             player.selectedBullID=data.selectedBullID;
             player.bullIDList=data.bullIDList;
+            player.resource_link=base_link+player.name.replace(" ","_").toLowerCase()+".png"
             playerList.push(player);
-            console.log("\n\nplayer_register ============================================================================================");
+            //console.log("\nplayer_register ============================================================================================");
             console.log("O player: "+player.name+"("+player.ID+")"+" foi registrado.");
             socket.emit("successfully_registered",player)
             socket.emit("server_info",Server_info());
             socket.broadcast.emit("server_info",Server_info());
 
 
-            // socket.emit("room_update",room);
-            // socket.broadcast.emit("room_update",room);
         }
     });
     //#endregion
-    
+
 
     socket.on('player_create_room', (data) => {
-        console.log("\n\nplayer_create_room  ===========================================================");
+        console.log("\n");
+        console.log("("+new Date(Date.now())+")");
+        console.log("player_create_room  ===========================================================");
         console.log(data);
         var room = GetRoomFromID(data.ID);
         var player = GetPlayerFromID(data.ID);
 
+        // Verifica se o player existe e se não existe a room
         if (!room && player) {
             room=data;
             // Minimo e maximo de player correção
@@ -260,83 +369,147 @@ io.on('connection', (socket) => {
             if(room.playerMax<2){
                 room.playerMax=2;
             }
+            // Adiciona a room na lista de room
             roomList.push(room)
+
+            // atualiza para este socket e para todos os sockets online o estatus desta room
             socket.emit("room_update",room);
             socket.broadcast.emit("room_update",room);
 
             
         }
 
-        console.log("\nNOVA ROOM, ROOMLIST: "+roomList.length);
-        console.log(room);
+        console.log("\nROOMLIST: "+roomList.length);
+        console.log("\nUma nova room foi criada: "+room.name+"("+room.ID+")");
+        console.log(">>>> "+JSON.stringify(room));
+        
+        // Atualiza no client o numero de players na room
+        PlayersInRoom(socket);
 
     });
 
 
     socket.on('player_join_room', (data) => {
-        console.log("\n\nplayer_join_room  ===========================================================");
+        console.log("\n\n");
+        console.log("("+new Date(Date.now())+")");
+        console.log("player_join_room  ===========================================================");
         console.log(data);
         var room = GetRoomFromID(data.roomID);
         var player = GetPlayerFromID(data.playerID);
-        var roomPlayerList = [];
-        var room2;
+        var currentRoomID = data.currentRoomID;
+        var lastRoom = undefined;
+        var playersInRoom=[];
+        var playerListRoom=[];
+        // var roomPlayerList = [];
+        // var room2;
 
 
 
 
 
 
+        // Aqui validamos a entrada do player na room ----------------
+        if (player && room  && room.playerList.length < room.playerMax) {
+            let isInRoom=false;
 
-        if(room){
-            roomPlayerList = room.playerList;
-        }
-
-        if (player && room  && roomPlayerList.length < room.playerMax) {
-            
-            roomList.forEach(rm => {
-                if (rm!=room && rm.playerList.includes(player.ID)) {
-                    room2 = rm;
+            // verifica se o player está na room
+            room.playerList.forEach(p =>{
+                if(p==player){
+                    isInRoom=true;
+                    //console.log("O player: "+player.name+"("+player.ID+")"+" já está na room: "+room.name+"("+room.ID+")");
+                    return false;
                 }
-            });
+            })
 
-
-            if (!roomPlayerList.includes(player.ID)) {
-                roomPlayerList.push(player.ID);
-                if(room2){
-                    room2.playerList.splice(GetIndex(room2.playerList,player.ID),1);
-                }
+            // Se o player não estiver na room coloque-o lá
+            if(!isInRoom && room && player){
+                //console.log("\nO player : "+player.name+"("+player.ID+")"+" não está na room: "+room.name+"("+room.ID+")");
+                // verifica se o player vem de outra room
                 
+                
+                roomList.forEach(rm => {
+                    rm.playerList.forEach(pl=>{
+                        if(pl.ID==player.ID){
+                            rm.playerList.forEach(pla => {
+                                if (pla.ID!=player.ID) {
+                                    playerListRoom.push(pla);
+                                }
+                            });
+                            console.log("\n");
+                            console.log("("+new Date(Date.now())+")");
+                            console.log("O player : "+player.name+"("+player.ID+")"+" saiu da room: "+rm.name+"("+rm.ID+")");
+                            // Remove o player da outra room no servidor
+                            lastRoom=rm;
+                            rm.playerList.splice(GetIndex(rm.playerList,player),1);
+                            return false
+                        }
+                    })
+                });
+
+                if (playerListRoom.length>0) {
+                    
+                    var pList = {
+                        ID:0,
+                        playerList:[]
+                    }
+                    if(lastRoom){
+                        playerListRoom.forEach(play => {
+                            
+                            pList.ID = lastRoom.ID;
+                            pList.playerList = playerListRoom;
+                            io.to(play.socketID).emit('room_player_list', pList);
+                            console.log("\n");
+                            console.log("("+new Date(Date.now())+")");
+                            console.log("O player cliente: "+play.name+"("+play.ID+")"+" receberá a playersInRoom: "+playerListRoom.length+" numeros de players");
+                        });
+
+                    }
+
+                }
+
+                
+                console.log("\n");
+                console.log("("+new Date(Date.now())+")");
+                console.log("O player : "+player.name+"("+player.ID+")"+" entrou na room: "+room.name+"("+room.ID+")");
+                // adiciona o player na lista de players da room
+                room.playerList.push(player);
             }
-
         }
 
-        if(room2){
-            socket.emit("room_update",room2);
-            socket.broadcast.emit("room_update",room2);
+        var pList = {
+            roomID:0,
+            playerList:[]
         }
 
-        socket.emit("room_update",room);
-        socket.broadcast.emit("room_update",room);
-
-
-        //socket.emit("player_room_update",player);
-        //socket.broadcast.emit("room_update",player);
-
-
+        if(room && room.playerList.length>0){
+            room.playerList.forEach(p => {
+                pList.roomID = room.ID;
+                pList.playerList = room.playerList;
+                io.to(p.socketID).emit('room_player_list', pList);
+            });
+        }
+        // Atualiza no client o numero de players na room
+        PlayersInRoom(socket);
     });
-
+    
     socket.on('player_update_rooms', (data) => {
-        console.log("\n\nplayer_update_rooms  ===========================================================");
+        console.log("\n\n");
+        console.log("("+new Date(Date.now())+")");
+        console.log("player_update_rooms  ===========================================================");
         console.log(data);
         
         roomList.forEach(room => {
             socket.emit("room_update",room);
         });
 
+        PlayersInRoom(socket);
+
     });
 
     socket.on('room_player_list_update',(data)=>{
-        console.log("\n\nroom_player_list_update  ===========================================================");
+        console.log("\n\n");
+        console.log("("+new Date(Date.now())+")");
+        console.log("room_player_list_update  ===========================================================");
         console.log(data);
         var room = GetRoomFromID(data.roomID);
         if (room) {
@@ -344,19 +517,383 @@ io.on('connection', (socket) => {
                 var player = GetPlayerFromID(pl);
                 if (player) {
                     //console.log("\nAdicionando player: "+player.name+"("+player.ID+")"+" na room: "+room.name+"("+room.ID+")");
+
                     console.log("\nAdicionando player: "+JSON.stringify(player));
-                    socket.emit("player_room_update",player);
+                    //socket.emit("player_room_update",player);
                 }
             });
+
+            UpdatePlayersInRoom(room);
         }
     })
+
+    socket.on('player_is_ready',(data)=>{
+        console.log("\n\n");
+        console.log("("+new Date(Date.now())+")");
+        console.log("player_is_ready  ===========================================================");
+        console.log(data);
+
+        // ready={
+        //     playerID:0,
+        //     roomID:0,
+        //     isReady:false
+        // }
+
+        room = GetRoomFromID(data.roomID);
+        player = GetPlayerFromID(data.playerID);
+
+        if(room && player){
+            socket.join(room.ID);
+            player.isReady=data.isReady;
+
+            if(player.isReady){
+                console.log("O player: "+player.name+"("+player.ID+")"+"sinalizou que está preparado!");
+            }else{
+                console.log("O player: "+player.name+"("+player.ID+")"+" sinalizou que não está preparado!");
+            }
+            isAllReady=true;
+
+            if(player.isReady){
+                room.playerList.forEach(p=>{
+                    if(!p.isReady){
+                        isAllReady=false;
+                        return false;
+                    }
+                })
+            }
+
+            if(isAllReady){
+                console.log("\nA partida começará em 5 segundos!");
+                //setTimeout(StartMatch(room), 5000);
+                setTimeout(() => {
+                    StartMatch(room);
+                  }, 5000)
+            }
+
+        }
+
+    });
+
+    socket.on('player_is_loaded_bull',(data)=>{
+        console.log("\n\n");
+        console.log("("+new Date(Date.now())+")");
+        console.log("player_is_loaded_bull  ===========================================================");
+        console.log(data);
+
+        // ready={
+        //     playerID:0,
+        //     roomID:0,
+        //     isReady:false
+        // }
+
+        room = GetRoomFromID(data.roomID);
+        player = GetPlayerFromID(data.playerID);
+
+            if(room && player){
+                
+                player.isLoadedBull=data.isLoadedBull;
+
+                if(player.isLoadedBull){
+                    console.log("O player: "+player.name+"("+player.ID+")"+"sinalizou que os Bulls estão carregados!");
+                // }else{
+                //     console.log("O player: "+player.name+"("+player.ID+")"+" sinalizou que não está preparado!");
+                // }
+                isLoadedBull=true;
+
+                if(player.isLoadedBull){
+                    room.playerList.forEach(p=>{
+                        if(!p.isLoadedBull){
+                            isLoadedBull=false;
+                            return false;
+                        }
+                    })
+                }
+
+                if(isLoadedBull){
+                    console.log("\nTodos os Bulls de todos os players estão carregados!");
+                    io.to(data.roomID).emit("player_start_game");
+                    //setTimeout(StartMatch(room), 5000);
+                    // setTimeout(() => {
+                    //     StartMatch(room);
+                    // }, 5000);
+                }
+
+            }
+
+        }   
+    });
+
+    //#region  GAMEPLAY UPDATE =======================================================================================
+    socket.on('player_pos', async (data) => {
+        //console.log(data);
+        socket.to(data.roomID).emit("player_pos",data);
+
+
+        // const d={
+        //     roomID:0,
+        //     playerID:0,
+        //     pos:{
+        //         x:0.0,
+        //         y:0.0,
+        //         z:0.0
+        //     }
+        // }
+        // room=GetRoomFromID(data.roomID);
+        // player=GetPlayerFromID(data.playerID);
+
+        //console.log(Array.from(io.sockets.adapter.rooms));
+
+        // if(room && player){
+        //     d.roomID=room.roomID;
+        //     d.playerID=player.ID;
+        //     d.pos=data.pos;
+            
+        //     //Atualisa no player servidor a pos
+        //     player.pos=d.pos;
+        //     // io.to(d.roomID).emit("player_pos",d);
+        //     // io.to(d.roomID).broadcast.emit("player_pos",d);
+           
+        //     // room.playerList.forEach(p => {
+        //     //     if(p.ID!=player.ID){
+        //     //         io.to(p.socketID).emit('player_pos', d);
+        //     //     }
+        //     // });
+        //     //console.log("Player : "+player.name+"("+player.ID+")"+"  | Position("+JSON.stringify(d.pos)+")");
+        // }
+    });
+
+
+
+    socket.on('player_shoot', (data) => {
+        
+
+        
+        const d={
+            roomID:0,
+            playerID:0,
+            point:{
+                x:0.0,
+                y:0.0,
+                z:0.0
+            }
+        }
+        room=GetRoomFromID(data.roomID);
+        player=undefined;
+
+
+
+
+        if(room){
+            d.roomID=room.roomID;
+            d.point=data.point;
+
+            room.playerList.forEach(p => {
+                if(p.socketID==socket.id){
+                    d.playerID=p.ID;
+                    player=GetPlayerFromID(d.playerID);
+                }
+            })
+            socket.to(data.roomID).emit("player_shoot",d);
+
+        //     // io.to(d.roomID).broadcast.emit("player_shoot",d);
+        //     socket.to(d.roomID).emit("player_shoot",d);
+
+        //     // if(player){
+        //     //     room.playerList.forEach(p => {
+        //     //         if(p.socketID!=socket.id){
+        //     //             io.to(p.socketID).emit('player_shoot', d);
+        //     //         }
+        //     //     });
+        //         //console.log("Player : "+player.name+"("+player.ID+")"+"  | Shoot point ("+JSON.stringify(d.point)+")");
+        //     // }
+        }
+    });
+
+
+    socket.on('player_rot', async (data) => {
+    
+        socket.to(data.roomID).emit("player_rot",data);
+        // const d={
+        //     roomID:0,
+        //     playerID:0,
+        //     rot:0.0,
+        //     pitch:0.0
+        // }
+
+        // room=GetRoomFromID(data.roomID);
+        // player=GetPlayerFromID(data.playerID);
+
+        // if(room && player){
+        //     d.roomID=room.roomID;
+        //     d.playerID=player.ID;
+        //     d.rot=data.rot;
+        //     d.pitch=data.pitch;
+            
+        //     //Atualisa no player servidor a rot e o pitch
+        //     player.rot=d.rot;
+        //     player.pitch=d.pitch
+
+        //     room.playerList.forEach(p => {
+        //         if(p.socketID==socket.id){
+        //             d.playerID=p.ID;
+        //             player=GetPlayerFromID(d.playerID);
+        //         }
+        //     });
+        //     // io.to(d.roomID).broadcast.emit("player_rot",d);
+        //     socket.to(d.roomID).emit("player_rot",d);
+        //     // if(player){
+        //     //     room.playerList.forEach(p => {
+        //     //         if(p.socketID!=socket.id){
+        //     //             io.to(p.socketID).emit('player_rot', d);
+        //     //         }
+        //     //     });
+        //     //     //console.log("Player : "+player.name+"("+player.ID+")"+"  | Rotation("+JSON.stringify(d.rot)+")");
+        //     //     //console.log("Player : "+player.name+"("+player.ID+")"+"  | Pitch("+JSON.stringify(d.pitch)+")");
+        //     // }
+        // }
+    });
+
+
+    socket.on('player_anims', async(data) => {
+        
+        socket.to(data.roomID).emit("player_anims",data);
+
+
+        // const a={
+        //     ID:0,
+        //     v:0,
+        //     h:0
+        // }
+
+
+        // for (let i = 0; i < Object.keys(playerList).length; i++) {
+        //     const p = playerList[i];
+        //     if (p.socketID==socket.id) {
+        //         a.ID=p.ID;
+               
+        //     }
+        // }
+
+
+        // a.ID=data.ID;
+        // a.v=data.v;
+        // a.h=data.h;
+        // socket.broadcast.emit('player_anims',a);
+        // console.log('player_anims: ' +JSON.stringify(a));
+        // //io.to('room1').emit('player_rot',r);
+        // ///////////////////////////////////////////console.log('player_rot: ' +JSON.stringify(r));	
+
+        // const d={
+        //     roomID:0,
+        //     playerID:0,
+        //     v:0.0,
+        //     h:0.0
+        // }
+
+        // room=GetRoomFromID(data.roomID);
+        // player=GetPlayerFromID(data.playerID);
+
+        // if(room && player){
+        //     d.roomID=room.roomID;
+        //     d.playerID=player.ID;
+        //     d.v=data.v;
+        //     d.h=data.h;
+            
+        //     //Atualisa no player servidor a rot e o pitch
+        //     room.playerList.forEach(p => {
+        //         if(p.socketID==socket.id){
+        //             d.playerID=p.ID;
+        //             player=GetPlayerFromID(d.playerID);
+        //         }
+        //     });
+        //     // io.to(d.roomID).broadcast.emit("player_anims",d);
+        //     socket.to(d.roomID).emit("player_anims",d);
+        //     // if(player){
+        //     //     room.playerList.forEach(p => {
+        //     //         if(p.socketID!=socket.id){
+        //     //             io.to(p.socketID).emit('player_anims', d);
+        //     //         }
+        //     //     });
+        //     //     console.log("Player : "+player.name+"("+player.ID+")"+"  | V("+JSON.stringify(d.v)+")");
+        //     //     console.log("Player : "+player.name+"("+player.ID+")"+"  | H("+JSON.stringify(d.h)+")");
+        //     // }
+        // }
+
+
+    });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    //#endregion
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 	socket.on('disconnect', (reason) => {
         console.log("\n\ndisconnect ============================================================================================");
         console.log("Desconexão SocketID: "+socket.id);
         var player;
-        var room;
+        var lastRoom;
         playerList.forEach(pl => {
             if (pl.socketID==socket.id) {
                 player = pl;
@@ -368,21 +905,51 @@ io.on('connection', (socket) => {
             console.log("O player: "+player.name+"("+player.ID+")"+" foi desconectado.");
             playerList.splice(GetIndex(playerList,player),1)
             socketList.splice(GetIndex(socketList,socket.id),1)
-
+            
             roomList.forEach(room => {
-                if (room.playerList.includes(player.ID)) {
-                    room.playerList.splice(GetIndex(room.playerList,player.ID),1);
+                if (room.playerList.includes(player)) {
+                    room.playerList.splice(GetIndex(room.playerList,player),1);
                     socket.emit("room_update",room);
                     socket.broadcast.emit("room_update",room);
+                    UpdatePlayersInRoom(room);
+                    lastRoom=room
+
                 }
             })
         }
 
+///////////////////////////////////////////////////////////////////
+        if (lastRoom && lastRoom.playerList.length>0) {
+                    
+            var pList = {
+                ID:0,
+                playerList:[]
+            }
+            
+            lastRoom.playerList.forEach(play => {
+                
+                pList.ID = lastRoom.ID;
+                pList.playerList = lastRoom.playerList;
+                io.to(play.socketID).emit('room_player_list', pList);
+                console.log("\nO player cliente: "+play.name+"("+play.ID+")"+" receberá a playersInRoom: "+lastRoom.playerList.length+" numeros de players");
+            });
+
+            
+
+        }
+////////////////////////////////////////////////////////////
+
+
         RemoveInactiveRoom(socket);
+
 
         socket.emit("server_info",Server_info());
         socket.broadcast.emit("server_info",Server_info());
+        // Atualiza no client o numero de players na room
+        PlayersInRoom(socket);
     });
+
+
 
 
 });

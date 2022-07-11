@@ -285,7 +285,6 @@ io.on('connection', (socket) => {
             ID:0,
             v:0,
             h:0
-
         }
 
 
