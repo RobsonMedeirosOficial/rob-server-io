@@ -22,8 +22,8 @@ var Player={
     defeats:0,
     lv:1,
     exp:0,
-    heath:100,
-    heathMax:100,
+    health:10000,
+    healthMax:10000,
     inventory:[],
     bullIDList:[],
     selectedBullID:0000,
@@ -336,8 +336,9 @@ io.on('connection', (socket) => {
             player.name=data.name;
             player.selectedBullID=data.selectedBullID;
             player.bullIDList=data.bullIDList;
-            player.heath=100;
-            player.heathMax=100;
+            // player.health=100;
+            // player.healthMax=100;
+            console.log("HEALTH: "+JSON.stringify(player));
 
             player.resource_link=base_link+player.name.replace(" ","_").toLowerCase()+".png";
 
@@ -507,6 +508,8 @@ io.on('connection', (socket) => {
                     console.log("\n");
                     console.log("("+new Date(Date.now())+")");
                     console.log("O player : "+player.name+"("+player.ID+")"+" entrou na room: "+room.name+"("+room.ID+")");
+                    console.log("HEALTH: "+JSON.stringify(player));
+  
                     room.playerList.push(player);
                 }
             }
@@ -861,6 +864,97 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('player_respawn', async (data) => {
+        
+        // recebe ID de quem foi atingido e cadastra o id de quem atingiu 
+        // const d={
+        //     ID:0,
+        //     health:0,
+        //     healthMax:0
+        // }
+
+        // for (let i = 0; i < Object.keys(playerList).length; i++) {
+        //     const p = playerList[i];
+        //     if (p.socketID == socket.id) {
+        //         if (playerList[i].health <= 0) {
+        //             playerList[i].health = playerList[i].healthMax;
+        //             d.ID = playerList[i].ID;
+        //             d.health = playerList[i].health;
+        //             d.healthMax = playerList[i].health;
+                    
+        //             setTimeout(() => {
+        //                 socket.emit('player_revive',d);
+        //                 socket.broadcast.emit('player_revive',d);
+        //                 console.log('***** player_revive: ' +JSON.stringify(d))
+        //             }, 3000);
+                    
+        //         }
+        //     }
+        // }
+        // ///////////////////////////////////////////////////////////console.log('player_pos: ' +JSON.stringify(d));	
+
+
+
+
+console.log(data);
+
+        const d={
+            roomID:0,
+            playerID:0,
+            health:0,
+            healthMax:0
+        }
+        d.roomID=data.roomID;
+        room=GetRoomFromID(data.roomID);
+        player=undefined;
+        playerHit=undefined;
+
+
+
+
+        if(room){
+            d.roomID=room.roomID;
+            d.point=data.point;
+
+            room.playerList.forEach(p => {
+                if(p.socketID==socket.id){
+                    if (p.health <= 0) {
+                        p.health = p.healthMax;
+                        d.roomID = playerID;
+                        d.playerID = p.playerID;
+                        d.health = p.health;
+                        d.healthMax = p.health;
+                        
+                        setTimeout(() => {
+                            socket.emit('player_revive',d);
+                            socket.broadcast.emit('player_revive',d);
+                            console.log('***** player_revive: ' +JSON.stringify(d))
+                        }, 3000);
+                        
+                    }
+                }
+            })
+            // socket.to(data.roomID).emit("player_hit",d);
+            // if (d.health==0) {
+            //     socket.to(data.roomID).emit("player_respawn",d);
+            // }
+        //     // io.to(d.roomID).broadcast.emit("player_shoot",d);
+        //     socket.to(d.roomID).emit("player_shoot",d);
+
+        //     // if(player){
+        //     //     room.playerList.forEach(p => {
+        //     //         if(p.socketID!=socket.id){
+        //     //             io.to(p.socketID).emit('player_shoot', d);
+        //     //         }
+        //     //     });
+        //         //console.log("Player : "+player.name+"("+player.ID+")"+"  | Shoot point ("+JSON.stringify(d.point)+")");
+        //     // }
+        }
+
+
+
+        
+    });
 
     socket.on('player_rot', async (data) => {
     
