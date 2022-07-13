@@ -313,16 +313,15 @@ io.on('connection', (socket) => {
     console.log("\n\nconnection ============================================================================================");
     
     //#region 1) Preparação e integração do player ao servidor ----------------------------------------------------------------------
-    // Primeiro verificamos se o socket.id está na scokeList se não estiver adicione e registre o player
+    // Primeiro verifica se o socket.id está na scokeList se não estiver adicione e registre o player
     if (!socketList.includes(socket.id)) {
         socketList.push(socket.id);
-        //console.log('Um novo player se conectou, socketID: ');
         console.log('\n\nUm novo player se conectou, socketID: '+socket.id);
         // Solicitar registro de dados do player
         socket.emit("player_register");
     }
     
-    // Aqui vamos cadastrar o player e criar um lobby para ele
+    // Cadastrar o player
     socket.on('player_register', async(data) => {
         console.log("\n");
         console.log("("+new Date(Date.now())+")");
@@ -337,13 +336,14 @@ io.on('connection', (socket) => {
             player.name=data.name;
             player.selectedBullID=data.selectedBullID;
             player.bullIDList=data.bullIDList;
-            player.resource_link=base_link+player.name.replace(" ","_").toLowerCase()+".png"
-            if(!playerList.includes(player)){
-                playerList.push(player);
-            }
+            player.resource_link=base_link+player.name.replace(" ","_").toLowerCase()+".png";
+
+            playerList.push(player);
+
             //console.log("\nplayer_register ============================================================================================");
             console.log("O player: "+player.name+"("+player.ID+")"+" foi registrado.");
             socket.emit("successfully_registered",player)
+
             socket.emit("server_info",Server_info());
             socket.broadcast.emit("server_info",Server_info());
 
@@ -377,9 +377,10 @@ io.on('connection', (socket) => {
             }
 
             // atualiza para este socket e para todos os sockets online o estatus desta room
+            socket.emit("player_create_room",room);
+            socket.broadcast.emit("player_create_room",room);
             socket.emit("room_update",room);
             socket.broadcast.emit("room_update",room);
-
             
         }
 
@@ -416,69 +417,93 @@ io.on('connection', (socket) => {
         if (player && room  && room.playerList.length < room.playerMax) {
             let isInRoom=false;
 
-            // verifica se o player está na room
-            room.playerList.forEach(p =>{
-                if(p==player){
-                    isInRoom=true;
-                    //console.log("O player: "+player.name+"("+player.ID+")"+" já está na room: "+room.name+"("+room.ID+")");
-                    return false;
-                }
-            })
+            // // verifica se o player está na room
+            // room.playerList.forEach(p =>{
+            //     if(p==player){
+            //         isInRoom=true;
+            //         //console.log("O player: "+player.name+"("+player.ID+")"+" já está na room: "+room.name+"("+room.ID+")");
+            //         return false;
+            //     }
+            // })
+
 
             // Se o player não estiver na room coloque-o lá
-            if(!isInRoom && room && player){
+            if(room && player && !room.playerList.includes(player)){
                 //console.log("\nO player : "+player.name+"("+player.ID+")"+" não está na room: "+room.name+"("+room.ID+")");
                 // verifica se o player vem de outra room
                 
                 
+                // roomList.forEach(rm => {
+                //     rm.playerList.forEach(pl=>{
+                //         if(pl.ID==player.ID){
+                //             rm.playerList.forEach(pla => {
+                //                 if (pla.ID!=player.ID) {
+                //                     if(!playerListRoom.includes(pla)){
+                //                         playerListRoom.push(pla);
+                //                     }
+                //                 }
+                //             });
+                //             console.log("\n");
+                //             console.log("("+new Date(Date.now())+")");
+                //             console.log("O player : "+player.name+"("+player.ID+")"+" saiu da room: "+rm.name+"("+rm.ID+")");
+                //             // Remove o player da outra room no servidor
+                //             lastRoom=rm;
+                //             rm.playerList.splice(GetIndex(rm.playerList,player),1);
+                //             return false
+                //         }
+                //     })
+                // });
+
+                // Busca em todas as rooms da roomList
                 roomList.forEach(rm => {
-                    rm.playerList.forEach(pl=>{
-                        if(pl.ID==player.ID){
-                            rm.playerList.forEach(pla => {
-                                if (pla.ID!=player.ID) {
-                                    if(!playerListRoom.includes(pla)){
-                                        playerListRoom.push(pla);
-                                    }
-                                }
-                            });
+                    // Se em uma room diferente desta room contiver o player em sua playerList, remova-o de lá
+                    if(rm!=room && rm.playerList.includes(player)){
+                        
+                        rm.playerList.splice(GetIndex(rm.playerList,player),1)
+                        var pList = {
+                            ID:0,
+                            playerList:[]
+                        }
+                        rm.playerList.forEach(p => {
+                            pList.ID = rm.ID;
+                            pList.playerList = rm.playerList;
+                            io.to(p.socketID).emit('room_player_list', pList);
                             console.log("\n");
                             console.log("("+new Date(Date.now())+")");
-                            console.log("O player : "+player.name+"("+player.ID+")"+" saiu da room: "+rm.name+"("+rm.ID+")");
-                            // Remove o player da outra room no servidor
-                            lastRoom=rm;
-                            rm.playerList.splice(GetIndex(rm.playerList,player),1);
-                            return false
-                        }
-                    })
+                            console.log("O player cliente: "+p.name+"("+p.ID+")"+" receberá a playersInRoom: "+rm.playerList.length+" numeros de players");
+                        });
+                    }
+
                 });
 
-                if (playerListRoom.length>0) {
+                // if (playerListRoom.length>0) {
                     
-                    var pList = {
-                        ID:0,
-                        playerList:[]
-                    }
-                    if(lastRoom){
-                        playerListRoom.forEach(play => {
+                //     var pList = {
+                //         ID:0,
+                //         playerList:[]
+                //     }
+                //     if(lastRoom){
+                //         playerListRoom.forEach(play => {
                             
-                            pList.ID = lastRoom.ID;
-                            pList.playerList = playerListRoom;
-                            io.to(play.socketID).emit('room_player_list', pList);
-                            console.log("\n");
-                            console.log("("+new Date(Date.now())+")");
-                            console.log("O player cliente: "+play.name+"("+play.ID+")"+" receberá a playersInRoom: "+playerListRoom.length+" numeros de players");
-                        });
+                //             pList.ID = lastRoom.ID;
+                //             pList.playerList = playerListRoom;
+                //             io.to(play.socketID).emit('room_player_list', pList);
+                //             console.log("\n");
+                //             console.log("("+new Date(Date.now())+")");
+                //             console.log("O player cliente: "+play.name+"("+play.ID+")"+" receberá a playersInRoom: "+playerListRoom.length+" numeros de players");
+                //         });
 
-                    }
+                //     }
 
-                }
+                // }
 
                 
-                console.log("\n");
-                console.log("("+new Date(Date.now())+")");
-                console.log("O player : "+player.name+"("+player.ID+")"+" entrou na room: "+room.name+"("+room.ID+")");
+
                 // adiciona o player na lista de players da room
                 if(!room.playerList.includes(player)){
+                    console.log("\n");
+                    console.log("("+new Date(Date.now())+")");
+                    console.log("O player : "+player.name+"("+player.ID+")"+" entrou na room: "+room.name+"("+room.ID+")");
                     room.playerList.push(player);
                 }
             }
@@ -500,14 +525,17 @@ io.on('connection', (socket) => {
         PlayersInRoom(socket);
     });
     
+
+    // // Assim que um player for registrado atualize todos os players
     socket.on('player_update_rooms', (data) => {
         console.log("\n\n");
         console.log("("+new Date(Date.now())+")");
         console.log("player_update_rooms  ===========================================================");
         console.log(data);
-        
-        roomList.forEach(room => {
-            socket.emit("room_update",room);
+        console.log("RoomList: "+roomList.length);
+        roomList.forEach(room1 => {
+            socket.emit("room_update",room1);
+            console.log("room1: "+JSON.stringify(room1));
         });
 
         PlayersInRoom(socket);
