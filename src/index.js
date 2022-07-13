@@ -336,6 +336,9 @@ io.on('connection', (socket) => {
             player.name=data.name;
             player.selectedBullID=data.selectedBullID;
             player.bullIDList=data.bullIDList;
+            player.heath=100;
+            player.heathMax=100;
+
             player.resource_link=base_link+player.name.replace(" ","_").toLowerCase()+".png";
 
             playerList.push(player);
@@ -731,6 +734,119 @@ io.on('connection', (socket) => {
             })
             socket.to(data.roomID).emit("player_shoot",d);
 
+        //     // io.to(d.roomID).broadcast.emit("player_shoot",d);
+        //     socket.to(d.roomID).emit("player_shoot",d);
+
+        //     // if(player){
+        //     //     room.playerList.forEach(p => {
+        //     //         if(p.socketID!=socket.id){
+        //     //             io.to(p.socketID).emit('player_shoot', d);
+        //     //         }
+        //     //     });
+        //         //console.log("Player : "+player.name+"("+player.ID+")"+"  | Shoot point ("+JSON.stringify(d.point)+")");
+        //     // }
+        }
+    });
+
+    socket.on('player_hit', async (data) => {
+        console.log("player_hit:  ========================================================");
+        //console.log(data);
+        // recebe ID de quem foi atingido e cadastra o id de quem atingiu 
+        // const d={
+        //     hit_ID:0,
+        //     shoot_ID:0,
+        //     health:100
+            
+        // }
+
+        // for (let i = 0; i < Object.keys(playerList).length; i++) {
+        //     const p = playerList[i];
+        //     if (p.socketID==socket.id) {
+        //         d.hit_ID=data.hit_ID;
+        //         d.shoot_ID=p.ID;
+                
+        //         for (let j = 0; j < Object.keys(playerList).length; j++){
+        //             const pp = playerList[j];
+        //             if (pp.ID==d.hit_ID) {
+
+        //                 pp.health-=30;
+        //                 if (pp.health<=0) {
+        //                     pp.health=0;
+        //                 }
+        //                 d.health=pp.health
+        //                 console.log('Player hitting =================: '+JSON.stringify(pp));
+
+        //             }
+        //         }
+                
+        //     }
+        // }
+
+        
+        // d.point=data.point;
+        // // d.v=data.v;
+        // // d.h=data.h;
+        // socket.broadcast.emit('player_hit',d);
+        // socket.emit('player_hit',d);
+        // console.log('Player hitting: '+JSON.stringify(d));
+
+        // if (d.health==0) {
+        //     socket.emit('player_respawn',d);
+        //     socket.broadcast.emit('player_respawn',d);
+        // }
+        // //io.to('room1').emit('player_pos',d);
+        // ///////////////////////////////////////////////////////////console.log('player_pos: ' +JSON.stringify(d));	
+
+
+
+
+
+
+
+
+
+
+
+        const d={
+            roomID:0,
+            hit_ID:0,
+            shoot_ID:0,
+            health:100
+            
+        }
+        d.roomID=data.roomID;
+        room=GetRoomFromID(data.roomID);
+        player=undefined;
+        playerHit=undefined;
+
+
+
+
+        if(room){
+            d.roomID=room.roomID;
+            d.point=data.point;
+
+            room.playerList.forEach(p => {
+                if(p.socketID==socket.id){
+                    d.hit_ID=data.hit_ID;
+                    d.shoot_ID=p.ID;
+
+                    playerHit=GetPlayerFromID(d.hit_ID);
+                    if(playerHit){
+                        playerHit.health-=30;
+                        if (playerHit.health<=0) {
+                            playerHit.health=0;
+                        }
+                        d.health=playerHit.health
+                        console.log('Player hitting =================: '+JSON.stringify(d));
+                    }
+                }
+            })
+            socket.to(data.roomID).emit("player_hit",d);
+            if (d.health==0) {
+                socket.to(data.roomID).emit("player_respawn",d);
+
+            }
         //     // io.to(d.roomID).broadcast.emit("player_shoot",d);
         //     socket.to(d.roomID).emit("player_shoot",d);
 
