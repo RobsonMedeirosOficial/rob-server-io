@@ -22,8 +22,8 @@ var Player={
     defeats:0,
     lv:1,
     exp:0,
-    health:10000,
-    healthMax:10000,
+    health:100,
+    healthMax:100,
     inventory:[],
     bullIDList:[],
     selectedBullID:0000,
@@ -184,9 +184,9 @@ function GetRoomFromID(ID){
 
 function RemoveInactiveRoom(socket){
     roomList.forEach(room=>{
-        var player=GetPlayerFromID(room.ID);
-
-        if (!player && room.playerList.length<=0) {
+        //var player=GetPlayerFromID(room.ID);
+        // if (!player && room.playerList.length<=0) {
+        if (room.playerList.length<=0) {
             console.log("\n\nRemovendo inactive room: "+JSON.stringify(room));
             roomList.splice(GetIndex(roomList,room),1);
             socket.emit("room_remove",room);
@@ -355,7 +355,6 @@ io.on('connection', (socket) => {
         }
     });
     //#endregion
-
 
     socket.on('player_create_room', (data) => {
         console.log("\n");
@@ -531,7 +530,6 @@ io.on('connection', (socket) => {
         PlayersInRoom(socket);
     });
     
-
     // // Assim que um player for registrado atualize todos os players
     socket.on('player_update_rooms', (data) => {
         console.log("\n\n");
@@ -668,7 +666,7 @@ io.on('connection', (socket) => {
     //#region  GAMEPLAY UPDATE =======================================================================================
     socket.on('player_pos', async (data) => {
         //console.log(data);
-        socket.to(data.roomID).emit("player_pos",data);
+        io.to(data.roomID).emit("player_pos",data);
 
 
         // const d={
@@ -704,8 +702,6 @@ io.on('connection', (socket) => {
         // }
     });
 
-
-
     socket.on('player_shoot', (data) => {
         
 
@@ -735,80 +731,15 @@ io.on('connection', (socket) => {
                     player=GetPlayerFromID(d.playerID);
                 }
             })
-            socket.to(data.roomID).emit("player_shoot",d);
+            io.to(data.roomID).emit("player_shoot",d);
 
-        //     // io.to(d.roomID).broadcast.emit("player_shoot",d);
-        //     socket.to(d.roomID).emit("player_shoot",d);
-
-        //     // if(player){
-        //     //     room.playerList.forEach(p => {
-        //     //         if(p.socketID!=socket.id){
-        //     //             io.to(p.socketID).emit('player_shoot', d);
-        //     //         }
-        //     //     });
-        //         //console.log("Player : "+player.name+"("+player.ID+")"+"  | Shoot point ("+JSON.stringify(d.point)+")");
-        //     // }
+  
         }
     });
 
     socket.on('player_hit', async (data) => {
         console.log("player_hit:  ========================================================");
-        //console.log(data);
-        // recebe ID de quem foi atingido e cadastra o id de quem atingiu 
-        // const d={
-        //     hit_ID:0,
-        //     shoot_ID:0,
-        //     health:100
-            
-        // }
-
-        // for (let i = 0; i < Object.keys(playerList).length; i++) {
-        //     const p = playerList[i];
-        //     if (p.socketID==socket.id) {
-        //         d.hit_ID=data.hit_ID;
-        //         d.shoot_ID=p.ID;
-                
-        //         for (let j = 0; j < Object.keys(playerList).length; j++){
-        //             const pp = playerList[j];
-        //             if (pp.ID==d.hit_ID) {
-
-        //                 pp.health-=30;
-        //                 if (pp.health<=0) {
-        //                     pp.health=0;
-        //                 }
-        //                 d.health=pp.health
-        //                 console.log('Player hitting =================: '+JSON.stringify(pp));
-
-        //             }
-        //         }
-                
-        //     }
-        // }
-
-        
-        // d.point=data.point;
-        // // d.v=data.v;
-        // // d.h=data.h;
-        // socket.broadcast.emit('player_hit',d);
-        // socket.emit('player_hit',d);
-        // console.log('Player hitting: '+JSON.stringify(d));
-
-        // if (d.health==0) {
-        //     socket.emit('player_respawn',d);
-        //     socket.broadcast.emit('player_respawn',d);
-        // }
-        // //io.to('room1').emit('player_pos',d);
-        // ///////////////////////////////////////////////////////////console.log('player_pos: ' +JSON.stringify(d));	
-
-
-
-
-
-
-
-
-
-
+        console.log(data);
 
         const d={
             roomID:0,
@@ -818,6 +749,7 @@ io.on('connection', (socket) => {
             
         }
         d.roomID=data.roomID;
+        d.point=data.point;
         room=GetRoomFromID(data.roomID);
         player=undefined;
         playerHit=undefined;
@@ -826,17 +758,16 @@ io.on('connection', (socket) => {
 
 
         if(room){
-            d.roomID=room.roomID;
-            d.point=data.point;
+            // d.roomID=room.roomID;
 
             room.playerList.forEach(p => {
                 if(p.socketID==socket.id){
                     d.hit_ID=data.hit_ID;
                     d.shoot_ID=p.ID;
 
-                    playerHit=GetPlayerFromID(d.hit_ID);
+                    playerHit=GetPlayerFromID(d.hit_ID); //  melhorar esta função
                     if(playerHit){
-                        playerHit.health-=30;
+                        playerHit.health-=30; // verificar damage da arma do player que atirou
                         if (playerHit.health<=0) {
                             playerHit.health=0;
                         }
@@ -845,58 +776,19 @@ io.on('connection', (socket) => {
                     }
                 }
             })
-            socket.to(data.roomID).emit("player_hit",d);
+            io.to(data.roomID).emit("player_hit",d);
+            
             if (d.health==0) {
-                socket.to(data.roomID).emit("player_respawn",d);
-
+                io.to(data.roomID).emit("player_respawn",d);
+                console.log('Player respawn =================: '+JSON.stringify(d));
             }
-        //     // io.to(d.roomID).broadcast.emit("player_shoot",d);
-        //     socket.to(d.roomID).emit("player_shoot",d);
 
-        //     // if(player){
-        //     //     room.playerList.forEach(p => {
-        //     //         if(p.socketID!=socket.id){
-        //     //             io.to(p.socketID).emit('player_shoot', d);
-        //     //         }
-        //     //     });
-        //         //console.log("Player : "+player.name+"("+player.ID+")"+"  | Shoot point ("+JSON.stringify(d.point)+")");
-        //     // }
         }
     });
 
     socket.on('player_respawn', async (data) => {
-        
-        // recebe ID de quem foi atingido e cadastra o id de quem atingiu 
-        // const d={
-        //     ID:0,
-        //     health:0,
-        //     healthMax:0
-        // }
-
-        // for (let i = 0; i < Object.keys(playerList).length; i++) {
-        //     const p = playerList[i];
-        //     if (p.socketID == socket.id) {
-        //         if (playerList[i].health <= 0) {
-        //             playerList[i].health = playerList[i].healthMax;
-        //             d.ID = playerList[i].ID;
-        //             d.health = playerList[i].health;
-        //             d.healthMax = playerList[i].health;
-                    
-        //             setTimeout(() => {
-        //                 socket.emit('player_revive',d);
-        //                 socket.broadcast.emit('player_revive',d);
-        //                 console.log('***** player_revive: ' +JSON.stringify(d))
-        //             }, 3000);
-                    
-        //         }
-        //     }
-        // }
-        // ///////////////////////////////////////////////////////////console.log('player_pos: ' +JSON.stringify(d));	
-
-
-
-
-console.log(data);
+        console.log('player_respawn: ========================================: \n'+JSON.stringify(data)+'\n');
+        console.log(data);
 
         const d={
             roomID:0,
@@ -905,50 +797,36 @@ console.log(data);
             healthMax:0
         }
         d.roomID=data.roomID;
+        d.playerID = data.playerID;
         room=GetRoomFromID(data.roomID);
-        player=undefined;
-        playerHit=undefined;
-
+        //console.log('***** 1) player_revive: ' +JSON.stringify(d))
 
 
 
         if(room){
-            d.roomID=room.roomID;
-            d.point=data.point;
 
             room.playerList.forEach(p => {
-                if(p.socketID==socket.id){
+                if(p.ID==d.playerID){
                     if (p.health <= 0) {
-                        p.health = p.healthMax;
-                        d.roomID = playerID;
-                        d.playerID = p.playerID;
-                        d.health = p.health;
-                        d.healthMax = p.health;
-                        
+
+                        d.health = Player.healthMax;
+                        d.healthMax = d.health;
+
+
+
+                        //console.log('***** 3) player_revive: ' +JSON.stringify(d))
                         setTimeout(() => {
-                            socket.emit('player_revive',d);
-                            socket.broadcast.emit('player_revive',d);
-                            console.log('***** player_revive: ' +JSON.stringify(d))
+                            p.health = d.health;
+                            p.healthMax = d.healthMax;
+                            socket.to(d.roomID).emit("player_revive",d);
+                            console.log("O player: "+p.name+"("+p.ID+")"+" reviveu! "+"(helth: "+p.health+")");
+                            //console.log('***** 4) player_revive: ' +JSON.stringify(d))
                         }, 3000);
                         
                     }
                 }
             })
-            // socket.to(data.roomID).emit("player_hit",d);
-            // if (d.health==0) {
-            //     socket.to(data.roomID).emit("player_respawn",d);
-            // }
-        //     // io.to(d.roomID).broadcast.emit("player_shoot",d);
-        //     socket.to(d.roomID).emit("player_shoot",d);
-
-        //     // if(player){
-        //     //     room.playerList.forEach(p => {
-        //     //         if(p.socketID!=socket.id){
-        //     //             io.to(p.socketID).emit('player_shoot', d);
-        //     //         }
-        //     //     });
-        //         //console.log("Player : "+player.name+"("+player.ID+")"+"  | Shoot point ("+JSON.stringify(d.point)+")");
-        //     // }
+            
         }
 
 
@@ -958,140 +836,15 @@ console.log(data);
 
     socket.on('player_rot', async (data) => {
     
-        socket.to(data.roomID).emit("player_rot",data);
-        // const d={
-        //     roomID:0,
-        //     playerID:0,
-        //     rot:0.0,
-        //     pitch:0.0
-        // }
-
-        // room=GetRoomFromID(data.roomID);
-        // player=GetPlayerFromID(data.playerID);
-
-        // if(room && player){
-        //     d.roomID=room.roomID;
-        //     d.playerID=player.ID;
-        //     d.rot=data.rot;
-        //     d.pitch=data.pitch;
-            
-        //     //Atualisa no player servidor a rot e o pitch
-        //     player.rot=d.rot;
-        //     player.pitch=d.pitch
-
-        //     room.playerList.forEach(p => {
-        //         if(p.socketID==socket.id){
-        //             d.playerID=p.ID;
-        //             player=GetPlayerFromID(d.playerID);
-        //         }
-        //     });
-        //     // io.to(d.roomID).broadcast.emit("player_rot",d);
-        //     socket.to(d.roomID).emit("player_rot",d);
-        //     // if(player){
-        //     //     room.playerList.forEach(p => {
-        //     //         if(p.socketID!=socket.id){
-        //     //             io.to(p.socketID).emit('player_rot', d);
-        //     //         }
-        //     //     });
-        //     //     //console.log("Player : "+player.name+"("+player.ID+")"+"  | Rotation("+JSON.stringify(d.rot)+")");
-        //     //     //console.log("Player : "+player.name+"("+player.ID+")"+"  | Pitch("+JSON.stringify(d.pitch)+")");
-        //     // }
-        // }
+        io.to(data.roomID).emit("player_rot",data);
+        
     });
-
 
     socket.on('player_anims', async(data) => {
         
-        socket.to(data.roomID).emit("player_anims",data);
-
-
-        // const a={
-        //     ID:0,
-        //     v:0,
-        //     h:0
-        // }
-
-
-        // for (let i = 0; i < Object.keys(playerList).length; i++) {
-        //     const p = playerList[i];
-        //     if (p.socketID==socket.id) {
-        //         a.ID=p.ID;
-               
-        //     }
-        // }
-
-
-        // a.ID=data.ID;
-        // a.v=data.v;
-        // a.h=data.h;
-        // socket.broadcast.emit('player_anims',a);
-        // console.log('player_anims: ' +JSON.stringify(a));
-        // //io.to('room1').emit('player_rot',r);
-        // ///////////////////////////////////////////console.log('player_rot: ' +JSON.stringify(r));	
-
-        // const d={
-        //     roomID:0,
-        //     playerID:0,
-        //     v:0.0,
-        //     h:0.0
-        // }
-
-        // room=GetRoomFromID(data.roomID);
-        // player=GetPlayerFromID(data.playerID);
-
-        // if(room && player){
-        //     d.roomID=room.roomID;
-        //     d.playerID=player.ID;
-        //     d.v=data.v;
-        //     d.h=data.h;
-            
-        //     //Atualisa no player servidor a rot e o pitch
-        //     room.playerList.forEach(p => {
-        //         if(p.socketID==socket.id){
-        //             d.playerID=p.ID;
-        //             player=GetPlayerFromID(d.playerID);
-        //         }
-        //     });
-        //     // io.to(d.roomID).broadcast.emit("player_anims",d);
-        //     socket.to(d.roomID).emit("player_anims",d);
-        //     // if(player){
-        //     //     room.playerList.forEach(p => {
-        //     //         if(p.socketID!=socket.id){
-        //     //             io.to(p.socketID).emit('player_anims', d);
-        //     //         }
-        //     //     });
-        //     //     console.log("Player : "+player.name+"("+player.ID+")"+"  | V("+JSON.stringify(d.v)+")");
-        //     //     console.log("Player : "+player.name+"("+player.ID+")"+"  | H("+JSON.stringify(d.h)+")");
-        //     // }
-        // }
-
+        io.to(data.roomID).emit("player_anims",data);
 
     });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1100,96 +853,83 @@ console.log(data);
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 	socket.on('disconnect', (reason) => {
         console.log("\n\ndisconnect ============================================================================================");
         console.log("Desconexão SocketID: "+socket.id);
         var player;
         var lastRoom;
-        playerList.forEach(pl => {
-            if (pl.socketID==socket.id) {
-                player = pl;
+        playerList.forEach(p => {
+            if (p.socketID==socket.id) {
+                player = p;
                 return false
             }
         });
 
         if(player){
+            
+            
+            // roomList.forEach(room => {
+                //     if (room.playerList.includes(player)) {
+                    //         room.playerList.splice(GetIndex(room.playerList,player),1);
+                    //         socket.emit("room_update",room);
+                    //         socket.broadcast.emit("room_update",room);
+                    //         UpdatePlayersInRoom(room);
+                    //         lastRoom=room
+                    
+                    //     }
+                    // })
+
+            roomList.forEach(room=>{
+                if (room.playerList.includes(player)) {
+                    lastRoom=room;
+                    return false;
+                }
+            })        
+                    
             console.log("O player: "+player.name+"("+player.ID+")"+" foi desconectado.");
+            //console.log("Removendo o player da roomID: "+player.roomID+".");
+
+            // lastRoom = GetRoomFromID(player.roomID);
+            if(lastRoom){
+                console.log("LastRoom: "+lastRoom.name+"("+lastRoom.ID+")");
+                lastRoom.playerList.splice(GetIndex(lastRoom.playerList,player),1);
+                io.to(lastRoom.ID).emit("player_disconnected",player);
+            }
+            
+
+
+
             playerList.splice(GetIndex(playerList,player),1)
             socketList.splice(GetIndex(socketList,socket.id),1)
-            
-            roomList.forEach(room => {
-                if (room.playerList.includes(player)) {
-                    room.playerList.splice(GetIndex(room.playerList,player),1);
-                    socket.emit("room_update",room);
-                    socket.broadcast.emit("room_update",room);
-                    UpdatePlayersInRoom(room);
-                    lastRoom=room
-
-                }
-            })
         }
 
 ///////////////////////////////////////////////////////////////////
-        if (lastRoom && lastRoom.playerList.length>0) {
+        // if (lastRoom && lastRoom.playerList.length>0) {
                     
-            var pList = {
-                ID:0,
-                playerList:[]
-            }
+        //     var pList = {
+        //         ID:0,
+        //         playerList:[]
+        //     }
             
-            lastRoom.playerList.forEach(play => {
+        //     lastRoom.playerList.forEach(play => {
                 
-                pList.ID = lastRoom.ID;
-                pList.playerList = lastRoom.playerList;
-                io.to(play.socketID).emit('room_player_list', pList);
-                console.log("\nO player cliente: "+play.name+"("+play.ID+")"+" receberá a playersInRoom: "+lastRoom.playerList.length+" numeros de players");
-            });
+        //         pList.ID = lastRoom.ID;
+        //         pList.playerList = lastRoom.playerList;
+        //         io.to(play.socketID).emit('room_player_list', pList);
+        //         console.log("\nO player cliente: "+play.name+"("+play.ID+")"+" receberá a playersInRoom: "+lastRoom.playerList.length+" numeros de players");
+        //     });
 
             
 
-        }
+        // }
 ////////////////////////////////////////////////////////////
 
 
-        RemoveInactiveRoom(socket);
+        //RemoveInactiveRoom(socket);
 
 
-        socket.emit("server_info",Server_info());
+
+        //socket.emit("server_info",Server_info());
         socket.broadcast.emit("server_info",Server_info());
         // Atualiza no client o numero de players na room
         PlayersInRoom(socket);
