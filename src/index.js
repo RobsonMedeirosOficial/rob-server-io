@@ -929,6 +929,9 @@ io.on('connection', (socket) => {
 
 
 
+
+
+
         //socket.emit("server_info",Server_info());
         socket.broadcast.emit("server_info",Server_info());
         // Atualiza no client o numero de players na room
