@@ -925,7 +925,7 @@ io.on('connection', (socket) => {
 ////////////////////////////////////////////////////////////
 
 
-        //RemoveInactiveRoom(socket);
+        RemoveInactiveRoom(socket);
 
 
 
