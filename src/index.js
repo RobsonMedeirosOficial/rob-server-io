@@ -1,9 +1,11 @@
 const { emit } = require('process');
+const { stringify } = require('querystring');
 
 const io = require('socket.io')(process.env.PORT || 3000, { //8124 is the local port we are binding the pingpong server to
 });
 
 
+var socketIDList=[]
 var socketList=[]
 var usedID=[0]
 var playerList=[];
@@ -39,6 +41,11 @@ var Player={
         z:0.0
     }
 }
+
+var matchmakerList=[]
+
+var roomListID=[];
+
 var weaponList=[];
 
 var Weapon={
@@ -87,6 +94,7 @@ function GeneratorID(){
     usedID.push(ID)
     return ID;
 }
+
 
 function GetIndex(array, value){
     var index=undefined;
@@ -267,6 +275,16 @@ function StartGame(room){
     }
 }
 
+function GetSocketBySocketID(socketID){
+    socket = null;
+    socketList.forEach(s => {
+        if(s.id==socketID){
+            socket=s;
+        }
+    });
+
+    return socket;
+}
 
 function StartMatch(room) {
     isAllReady = true;
@@ -314,8 +332,9 @@ io.on('connection', (socket) => {
     
     //#region 1) Preparação e integração do player ao servidor ----------------------------------------------------------------------
     // Primeiro verifica se o socket.id está na scokeList se não estiver adicione e registre o player
-    if (!socketList.includes(socket.id)) {
-        socketList.push(socket.id);
+    if (!socketIDList.includes(socket.id)) {
+        socketIDList.push(socket.id);
+        socketList.push(socket);
         console.log('\n\nUm novo player se conectou, socketID: '+socket.id);
         // Solicitar registro de dados do player
         socket.emit("player_register");
@@ -328,7 +347,12 @@ io.on('connection', (socket) => {
         console.log("player_register  ===========================================================");
         console.log(data);
 
-        if (socketList.includes(socket.id) && data.ID=='') {
+
+
+
+
+
+        if (socketIDList.includes(socket.id) && data.ID=='') {
             let ID = GeneratorID();
             let player = {...Player};
             player.socketID=socket.id;
@@ -338,7 +362,7 @@ io.on('connection', (socket) => {
             player.bullIDList=data.bullIDList;
             // player.health=100;
             // player.healthMax=100;
-            console.log("HEALTH: "+JSON.stringify(player));
+            //console.log("HEALTH: "+JSON.stringify(player));
 
             player.resource_link=base_link+player.name.replace(" ","_").toLowerCase()+".png";
 
@@ -350,6 +374,64 @@ io.on('connection', (socket) => {
 
             socket.emit("server_info",Server_info());
             socket.broadcast.emit("server_info",Server_info());
+
+
+            // ROOM ----------------------------------------------------------------------------------------
+            let roomID = GeneratorID();
+            //let rm1 = 
+            
+            socket.join(roomID);
+
+            const rooms = io.of("/").adapter.rooms;
+            const room = rooms.get(roomID)
+
+        
+            room.ID=roomID;
+            room.name=player.name;
+            room.playerMax=2;
+            room.playerList=[];
+            room.playerInfoList=[];
+            room.isRunning=false;
+
+            room.playerList.push(player);
+
+            roomList.push(room);
+
+            console.log("room  =========================================================");
+            console.log(rooms);
+            // ----------------------------------------------------------------------------------------------
+
+            var pList = {
+                ID:0,
+                playerList:[]
+            }
+            roomList.forEach(rm => {
+                
+                rm.playerList.forEach(p => {
+                    pList.ID = rm.ID;
+                    pList.playerList = rm.playerList;
+                    io.to(p.socketID).emit('room_player_list', pList);
+                    console.log("\n");
+                });
+
+            });
+
+
+
+
+
+            var nsp = io.of('/');
+            var rooms2 = nsp.adapter.rooms;
+            console.log("***************************");
+            console.log(rooms2);
+            console.log("***************************");
+
+            // console.log("\n\n\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
+            // for (let s in io.engine.clients) {
+            //     let socket2 = io.engine.clients[s];
+            //     console.log(socket2.id);
+            // }
+
 
 
         }
@@ -395,6 +477,69 @@ io.on('connection', (socket) => {
         PlayersInRoom(socket);
 
     });
+
+
+    function JoinRoom(playerID, isDeleteRoom=false){
+        let player = GetPlayerFromID(playerID);
+        roomList.forEach(rm => {
+            if(rm.playerList.includes(player)){
+                console.log(("\nO player: "+player.name+"("+player.ID+")"+" deixou a room: "+rm.name+"("+rm.ID+")"));
+
+                // Remove o player da room
+                socket.leave(rm.ID);
+
+                // Remove o player da room.playerList
+                rm.playerList.splice(GetIndex(rm.playerList,player),1)
+
+                console.log("Room: "+rm.name+"("+rm.ID+")"+" | playerList lenght: "+rm.playerList.length);
+            }
+
+            console.log("***************************");
+            console.log(rm);
+            console.log("***************************");
+            if(isDeleteRoom){
+                io.in(rm.ID).socketsLeave(rm.ID);
+                roomList.splice(GetIndex(roomList, rm),1);
+                console.log("RoomList lenght: "+roomList.length);
+
+                var nsp = io.of('/');
+
+                var rooms = nsp.adapter.rooms;
+                
+                console.log("***************************");
+                console.log(rooms);
+                console.log("***************************");
+            }
+        });
+    }
+
+
+ // NOVO --------------------
+    socket.on('player_find_match', (data)=>{
+        console.log("\nplayer_find_match: =======================================================");
+        console.log(data);
+        
+
+        JoinRoom(data.playerID,true);
+        
+        // var socketPlayer = GetSocketBySocketID(player.socketID);
+        //                     var socketP = GetSocketBySocketID(p.socketID)
+
+
+        // if(player)
+        // {
+        //     if(!matchmakerList.includes(player)){
+        //         matchmakerList.push(player);
+        //         console.log("\nO player: "+player.name+"("+player.ID+")"+" iniciou uma busca por partida.");
+        //     }
+
+
+        // }
+        
+
+    })
+
+
 
 
     socket.on('player_join_room', (data) => {
@@ -900,29 +1045,8 @@ io.on('connection', (socket) => {
 
 
             playerList.splice(GetIndex(playerList,player),1)
-            socketList.splice(GetIndex(socketList,socket.id),1)
+            socketIDList.splice(GetIndex(socketIDList,socket.id),1)
         }
-
-///////////////////////////////////////////////////////////////////
-        // if (lastRoom && lastRoom.playerList.length>0) {
-                    
-        //     var pList = {
-        //         ID:0,
-        //         playerList:[]
-        //     }
-            
-        //     lastRoom.playerList.forEach(play => {
-                
-        //         pList.ID = lastRoom.ID;
-        //         pList.playerList = lastRoom.playerList;
-        //         io.to(play.socketID).emit('room_player_list', pList);
-        //         console.log("\nO player cliente: "+play.name+"("+play.ID+")"+" receberá a playersInRoom: "+lastRoom.playerList.length+" numeros de players");
-        //     });
-
-            
-
-        // }
-////////////////////////////////////////////////////////////
 
 
         RemoveInactiveRoom(socket);
