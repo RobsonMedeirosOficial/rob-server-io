@@ -336,6 +336,8 @@ io.on('connection', (socket) => {
             player.name=data.name;
             player.selectedBullID=data.selectedBullID;
             player.bullIDList=data.bullIDList;
+
+
             // player.health=100;
             // player.healthMax=100;
             console.log("HEALTH: "+JSON.stringify(player));
@@ -379,6 +381,9 @@ io.on('connection', (socket) => {
                 roomList.push(room)
             }
 
+            //NOVO ------------------------
+            room.playerList.push(player);
+
             // atualiza para este socket e para todos os sockets online o estatus desta room
             socket.emit("player_create_room",room);
             socket.broadcast.emit("player_create_room",room);
@@ -390,6 +395,7 @@ io.on('connection', (socket) => {
         console.log("\nROOMLIST: "+roomList.length);
         console.log("\nUma nova room foi criada: "+room.name+"("+room.ID+")");
         console.log(">>>> "+JSON.stringify(room));
+        
         
         // Atualiza no client o numero de players na room
         PlayersInRoom(socket);
@@ -845,6 +851,64 @@ io.on('connection', (socket) => {
         io.to(data.roomID).emit("player_anims",data);
 
     });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+playerMatchList=[];
+matchRoomIDList=[];
+
+
+
+
+    socket.on('player_find_match', (data)=>{
+
+        var player = GetPlayerFromID(data.playerID)
+
+        if(player){
+            if(!playerMatchList.includes(player)){
+                playerMatchList.push(player);
+
+                setTimeout(() => {
+                    playerMatchList.forEach(p=>{
+                        if(p!=player){
+                            socket.join("some room");
+                        }
+                    })
+                  }, 3000)
+            }
+        }
+
+
+        
+    });
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
