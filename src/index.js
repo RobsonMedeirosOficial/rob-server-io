@@ -892,7 +892,7 @@ io.on('connection', (socket) => {
         switch (data.gameMode) {
             case "1v1":
                 var list = wait1v1List;
-                var playersAmount = 1*2;
+                var playersAmount = 1*6;
 
                 if(player){
                     if (list.length < playersAmount-1 && !list.includes(player)) {
