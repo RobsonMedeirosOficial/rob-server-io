@@ -1,3 +1,4 @@
+const { clear } = require('console');
 const { emit } = require('process');
 
 const io = require('socket.io')(process.env.PORT || 3000, { //8124 is the local port we are binding the pingpong server to
@@ -8,6 +9,15 @@ var socketList=[]
 var usedID=[0]
 var playerList=[];
 var roomList=[];
+
+var wait1v1List=[];
+var wait2v2List=[];
+var wait4v4List=[];
+
+
+var playerMatchList=[];
+var matchRoomList=[];
+
 var lobbyList=[];
 var Player={
     ID:0,
@@ -28,6 +38,7 @@ var Player={
     bullIDList:[],
     selectedBullID:0000,
     isLoadedBull:false,
+    isWaitingMatch:false,
     pos:{
         x:0.0,
         y:0.0,
@@ -306,6 +317,22 @@ function StartMatch(room) {
           }, 10000)
     }
 }
+
+
+function GetSocketBySocketID(socketID){
+    socket = null;
+    socketList.forEach(s => {
+        if(s.id==socketID){
+            socket=s;
+        }
+    });
+
+    return socket;
+}
+
+
+
+
 var base_link="https://rmoproducoes.com.br/chaves/";
 
 io.on('connection', (socket) => {
@@ -314,8 +341,8 @@ io.on('connection', (socket) => {
     
     //#region 1) Preparação e integração do player ao servidor ----------------------------------------------------------------------
     // Primeiro verifica se o socket.id está na scokeList se não estiver adicione e registre o player
-    if (!socketList.includes(socket.id)) {
-        socketList.push(socket.id);
+    if (!socketList.includes(socket)) {
+        socketList.push(socket);
         console.log('\n\nUm novo player se conectou, socketID: '+socket.id);
         // Solicitar registro de dados do player
         socket.emit("player_register");
@@ -328,7 +355,7 @@ io.on('connection', (socket) => {
         console.log("player_register  ===========================================================");
         console.log(data);
 
-        if (socketList.includes(socket.id) && data.ID=='') {
+        if (socketList.includes(socket) && data.ID=='') {
             let ID = GeneratorID();
             let player = {...Player};
             player.socketID=socket.id;
@@ -340,7 +367,7 @@ io.on('connection', (socket) => {
 
             // player.health=100;
             // player.healthMax=100;
-            console.log("HEALTH: "+JSON.stringify(player));
+            //console.log("HEALTH: "+JSON.stringify(player));
 
             player.resource_link=base_link+player.name.replace(" ","_").toLowerCase()+".png";
 
@@ -394,7 +421,7 @@ io.on('connection', (socket) => {
 
         console.log("\nROOMLIST: "+roomList.length);
         console.log("\nUma nova room foi criada: "+room.name+"("+room.ID+")");
-        console.log(">>>> "+JSON.stringify(room));
+        //console.log(">>>> "+JSON.stringify(room));
         
         
         // Atualiza no client o numero de players na room
@@ -635,12 +662,13 @@ io.on('connection', (socket) => {
         room = GetRoomFromID(data.roomID);
         player = GetPlayerFromID(data.playerID);
 
+
             if(room && player){
                 
                 player.isLoadedBull=data.isLoadedBull;
 
                 if(player.isLoadedBull){
-                    console.log("O player: "+player.name+"("+player.ID+")"+"sinalizou que os Bulls estão carregados!");
+                    console.log("O player: "+player.name+"("+player.ID+")"+" sinalizou que os Bulls estão carregados!");
                 // }else{
                 //     console.log("O player: "+player.name+"("+player.ID+")"+" sinalizou que não está preparado!");
                 // }
@@ -656,7 +684,7 @@ io.on('connection', (socket) => {
                 }
 
                 if(isLoadedBull){
-                    console.log("\nTodos os Bulls de todos os players estão carregados!");
+                    console.log("\nTodos os Bulls de todos os players da room: "+room.name+"("+room.ID+")"+" estão carregados!");
                     io.to(data.roomID).emit("player_start_game");
                     //setTimeout(StartMatch(room), 5000);
                     // setTimeout(() => {
@@ -673,39 +701,6 @@ io.on('connection', (socket) => {
     socket.on('player_pos', async (data) => {
         //console.log(data);
         io.to(data.roomID).emit("player_pos",data);
-
-
-        // const d={
-        //     roomID:0,
-        //     playerID:0,
-        //     pos:{
-        //         x:0.0,
-        //         y:0.0,
-        //         z:0.0
-        //     }
-        // }
-        // room=GetRoomFromID(data.roomID);
-        // player=GetPlayerFromID(data.playerID);
-
-        //console.log(Array.from(io.sockets.adapter.rooms));
-
-        // if(room && player){
-        //     d.roomID=room.roomID;
-        //     d.playerID=player.ID;
-        //     d.pos=data.pos;
-            
-        //     //Atualisa no player servidor a pos
-        //     player.pos=d.pos;
-        //     // io.to(d.roomID).emit("player_pos",d);
-        //     // io.to(d.roomID).broadcast.emit("player_pos",d);
-           
-        //     // room.playerList.forEach(p => {
-        //     //     if(p.ID!=player.ID){
-        //     //         io.to(p.socketID).emit('player_pos', d);
-        //     //     }
-        //     // });
-        //     //console.log("Player : "+player.name+"("+player.ID+")"+"  | Position("+JSON.stringify(d.pos)+")");
-        // }
     });
 
     socket.on('player_shoot', (data) => {
@@ -860,37 +855,230 @@ io.on('connection', (socket) => {
 
 
 
+//(evento) receber um evento de busca por partida com modo de jogo
+    // adicionar o player na lista de espera do modo de jogo com um tempo de retorno
+    //verifica na lista do modo de jogo a quantidade de jogadores ideal
+        // no modo de jogo (1x1):
+            // dividir em 2 times os 2 jogadores 
+            //retornar o proximo evento
+ 
+        // no modo de jogo (2x2):
+            // dividir em 2 times os 4 jogadores
+            //retornar o proximo evento
 
 
+//(evento) retornar um evento de partida encontrada
+    // aguardar retorno do proximo evento
 
+//(evento) receber evento de todos os bulls carregados por jogador
+    // verificar se todos os players tem os bulls carregados e retornar o proximo evento
 
-
-
-
-
-
-
-playerMatchList=[];
-matchRoomIDList=[];
-
+//(evento) retornar evento de iniciar partida
+    // iniciar gamemanger do modo de jogo
+        // modo de jogo (1x1):
+            //iniciar tempo de partida
+            //iniciar verificação de pontos limite para ter um vencedor
+            //verificar pontuação após terminar o tempo de partida
 
 
 
     socket.on('player_find_match', (data)=>{
+        //data = playerID=int,gameMode=string
+        var player = GetPlayerFromID(data.playerID);
+
+        console.log("\nO player: "+player.name+"("+player.ID+")"+" iniciou uma busca por partida.");
+
+        isMatch=false;
+        switch (data.gameMode) {
+            case "1v1":
+                var list = wait1v1List;
+                var playersAmount = 2*2;
+                if(player){
+                    if (list.length < playersAmount-1 && !list.includes(player)) {
+                        // adicionar o player na lista de espera do modo de jogo com um tempo de retorno
+                        console.log("\nO player: "+player.name+"("+player.ID+")"+" entrou na lista de espera.");
+                        list.push(player);
+                        break;
+                    }
+
+                    //verifica na lista do modo de jogo a quantidade de jogadores ideal
+                    if(list.length = playersAmount-1){
+                        console.log("\nO player: "+player.name+"("+player.ID+")"+" começou uma partida (1x1).");
+                        let roomID = GeneratorID();
+                        let sock = GetSocketBySocketID(player.socketID);
+
+                        // Cria ar sala ao dar join
+                        sock.join(roomID);
+                        
+                        // pega a room IO pelo nome
+                        const rooms = io.of("/").adapter.rooms;
+                        const room = rooms.get(roomID)
+                    
+                        // Adiciona as keys na room
+                        room.ID=roomID;
+                        room.name="MatchRoom";
+                        room.playerMax=2;
+                        room.playerList=[];
+                        room.playerInfoList=[];
+                        room.isRunning=false;
+
+                        // Adiciona o player na playerList da room
+                        room.playerList.push(player);
+
+                        // Cria pacote
+                        var pList = {
+                            roomID:0,
+                            playerList:[]
+                        }
+
+                        // Preenche o pacote
+                        pList.roomID=roomID;
+                        pList.playerList.push(player);
+
+                        // Lista a list
+                        list.forEach(p => {
+                            // Pega o socket do player listado
+                            let sock2 = GetSocketBySocketID(p.socketID);
+                            // O player listado entra na room
+                            sock2.join(roomID);
+                            console.log("\nO player: "+p.name+"("+p.ID+")"+" entrou na partida partida (1x1). da matchRoom("+room.ID+")");
+                            // Adiciona o player listado na playerList da room
+                            room.playerList.push(p);
+
+                            // Adiciona o player listado na playerList da room
+                            pList.playerList.push(p);
+
+
+
+                            console.log("room.playerList amount: "+room.playerList.length);
+                            
+                            
+                        });
+
+                        // Reset list
+                        wait1v1List=[];
+                        console.log("wait1v1List amount: "+wait1v1List.length);
+                        //(evento) retornar um evento de partida encontrada
+                        // Adicionar a room IO na roomList
+                        roomList.push(room);
+                        console.log("\n\n ROOM: ======================================================");
+                        console.log(room);
+                        // Envia para todos da room o pacote com a tag de evento start_match
+                        io.to(roomID).emit("start_match",pList);
+                    }
+
+                }
+                
+
+                break;
+        
+            default:
+                break;
+        }
+        
+            // no modo de jogo (1x1):
+                // dividir em 2 times os 2 jogadores 
+                //retornar o proximo evento
+    
+            // no modo de jogo (2x2):
+                // dividir em 2 times os 4 jogadores
+                //retornar o proximo evento
+
+    });
+
+
+
+
+
+
+
+
+
+    socket.on('player_find_match_backup', (data)=>{
 
         var player = GetPlayerFromID(data.playerID)
+        console.log("\nO player: "+player.name+"("+player.ID+")"+" iniciou uma busca por partida.");
 
-        if(player){
-            if(!playerMatchList.includes(player)){
+        if(player && !player.isReady){
+            if(!playerMatchList.includes(player) ){
+                
                 playerMatchList.push(player);
-
+                
                 setTimeout(() => {
+                    isMatch=false;
                     playerMatchList.forEach(p=>{
                         if(p!=player){
-                            socket.join("some room");
+                            if(!p.isReady){
+                                console.log("\nUma partida foi encontrada!");
+
+                                isMatch=true;
+                                p.isReady=true;
+
+                                player.isReady=true;
+
+                                let roomID = GeneratorID();
+                                let sock = GetSocketBySocketID(player.socketID);
+                                let sock2 = GetSocketBySocketID(p.socketID);
+
+                                sock.join(roomID);
+
+                                const rooms = io.of("/").adapter.rooms;
+                                const room = rooms.get(roomID)
+
+                            
+                                room.ID=roomID;
+                                room.name="MatchRoom";
+                                room.playerMax=2;
+                                room.playerList=[];
+                                room.playerInfoList=[];
+                                room.isRunning=false;
+
+                                //room.playerList.push(player);
+
+                                roomList.push(room);
+                                
+                                // console.log("socketID: "+player.socketID);
+                                // console.log("SOCK: "+sock);
+                                // console.log("roomID: "+roomID);
+                                //console.log(GetSocketBySocketID(player.socketID));
+                                //sock.join(roomID);
+                                sock2.join(roomID);
+
+
+                                var pList = {
+                                    roomID:0,
+                                    playerList:[]
+                                }
+
+                                pList.roomID=roomID;
+                                pList.playerList.push(player);
+                                pList.playerList.push(p);
+
+                                room.playerList.push(player);
+                                room.playerList.push(p);
+                               
+
+                                io.to(roomID).emit("start_match",pList);
+
+                                console.log("\n"+player.name+"("+player.ID+")"+" VS. "+p.name+"("+p.ID+")");
+                                console.log("\nQuem sairá vitorioso nessa?");
+                                playerMatchList.splice(GetIndex(playerMatchList,p),1);
+                                playerMatchList.splice(GetIndex(playerMatchList,player),1);
+                                return false;
+                            }else{
+                                console.log("\nO player: "+player.name+"("+player.ID+")"+" tentou uma partida com o player: "+p.name+"("+p.ID+")");
+                            }
                         }
                     })
-                  }, 3000)
+                    if(!isMatch){
+                        console.log("\nO player: "+player.name+"("+player.ID+")"+" não encontrou uma partida.");
+                        playerMatchList.splice(GetIndex(playerMatchList,player),1);
+                        socket.emit("match_not_found");
+                    }
+                }, 50)
+
+                return false;
+            
             }
         }
 
@@ -964,7 +1152,7 @@ matchRoomIDList=[];
 
 
             playerList.splice(GetIndex(playerList,player),1)
-            socketList.splice(GetIndex(socketList,socket.id),1)
+            socketList.splice(GetIndex(socketList,socket),1)
         }
 
 ///////////////////////////////////////////////////////////////////
