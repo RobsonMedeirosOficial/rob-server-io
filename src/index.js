@@ -892,8 +892,8 @@ io.on('connection', (socket) => {
         switch (data.gameMode) {
             case "1v1":
                 var list = wait1v1List;
-                var playersAmount = 2*2;
-                
+                var playersAmount = 1*2;
+
                 if(player){
                     if (list.length < playersAmount-1 && !list.includes(player)) {
                         // adicionar o player na lista de espera do modo de jogo com um tempo de retorno
