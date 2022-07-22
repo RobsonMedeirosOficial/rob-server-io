@@ -945,7 +945,7 @@ function FindMatchGameMode(player, list, playersAmount){
                     wait2v2List=[];
                     console.log("wait2v2List amount: "+wait2v2List.length);
                 }
-                if(playersAmount==8){
+                if(playersAmount==6){
                     wait4v4List=[];
                     console.log("wait4v4List amount: "+wait4v4List.length);
                 }
@@ -976,7 +976,7 @@ function FindMatchGameMode(player, list, playersAmount){
                 FindMatchGameMode(player, wait1v1List, 2*2);
                 break;
             case "4v4":
-                FindMatchGameMode(player, wait1v1List, 4*2);
+                FindMatchGameMode(player, wait1v1List, 3*2);
                 break;
         
             default:
