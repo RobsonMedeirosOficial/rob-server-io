@@ -145,6 +145,8 @@ function Server_info(){
 
 }
 
+
+
 function EmitRoom(room){
 
 }
@@ -338,8 +340,7 @@ var base_link="https://rmoproducoes.com.br/chaves/";
 io.on('connection', (socket) => {
 
     console.log("\n\nconnection ============================================================================================");
-    
-    //#region 1) Preparação e integração do player ao servidor ----------------------------------------------------------------------
+    //#region Primeiro contato com o socket 
     // Primeiro verifica se o socket.id está na scokeList se não estiver adicione e registre o player
     if (!socketList.includes(socket)) {
         socketList.push(socket);
@@ -347,8 +348,9 @@ io.on('connection', (socket) => {
         // Solicitar registro de dados do player
         socket.emit("player_register");
     }
+    //#endregion --------------------------------------------------------------------------------------
     
-    // Cadastrar o player
+    // Registra o player -------------------------------------------------------------------------
     socket.on('player_register', async(data) => {
         console.log("\n");
         console.log("("+new Date(Date.now())+")");
@@ -383,7 +385,7 @@ io.on('connection', (socket) => {
 
         }
     });
-    //#endregion
+    
 
     socket.on('player_create_room', (data) => {
         console.log("\n");
@@ -704,9 +706,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('player_shoot', (data) => {
-        
-
-        
         const d={
             roomID:0,
             playerID:0,
@@ -719,9 +718,6 @@ io.on('connection', (socket) => {
         room=GetRoomFromID(data.roomID);
         player=undefined;
 
-
-
-
         if(room){
             d.roomID=room.roomID;
             d.point=data.point;
@@ -733,8 +729,6 @@ io.on('connection', (socket) => {
                 }
             })
             io.to(data.roomID).emit("player_shoot",d);
-
-  
         }
     });
 
@@ -879,98 +873,110 @@ io.on('connection', (socket) => {
             //iniciar tempo de partida
             //iniciar verificação de pontos limite para ter um vencedor
             //verificar pontuação após terminar o tempo de partida
+function FindMatchGameMode(player, list, playersAmount){
+    // var list = wait1v1List;
+    // var playersAmount = 1*2;
 
+    if(player){
+        if (list.length < playersAmount-1 && !list.includes(player)) {
+            // adicionar o player na lista de espera do modo de jogo com um tempo de retorno
+            console.log("\nO player: "+player.name+"("+player.ID+")"+" entrou na lista de espera.");
+            list.push(player);
+            return false;
+           
+        }else{
+            //verifica na lista do modo de jogo a quantidade de jogadores ideal
+            if(list.length = playersAmount-1){
+                console.log("\nO player: "+player.name+"("+player.ID+")"+" começou uma partida (1x1).");
+                let roomID = GeneratorID();
+                let sock = GetSocketBySocketID(player.socketID);
+
+                // Cria ar sala ao dar join
+                sock.join(roomID);
+                
+                // pega a room IO pelo nome
+                const rooms = io.of("/").adapter.rooms;
+                const room = rooms.get(roomID)
+
+                // Adiciona as keys na room
+                room.ID=roomID;
+                room.name="MatchRoom";
+                room.playerMax=2;
+                room.playerList=[];
+                room.playerInfoList=[];
+                room.isRunning=false;
+
+                // Adiciona o player na playerList da room
+                room.playerList.push(player);
+
+                // Cria pacote
+                var pList = {
+                    roomID:0,
+                    playerList:[]
+                }
+
+                // Preenche o pacote
+                pList.roomID=roomID;
+                pList.playerList.push(player);
+
+                // Lista a list
+                list.forEach(p => {
+                    // Pega o socket do player listado
+                    let sock2 = GetSocketBySocketID(p.socketID);
+                    // O player listado entra na room
+                    sock2.join(roomID);
+                    console.log("\nO player: "+p.name+"("+p.ID+")"+" entrou na partida ("+(playersAmount/2)+"x"+(playersAmount/2)+"). da matchRoom("+room.ID+")");
+                    // Adiciona o player listado na playerList da room
+                    room.playerList.push(p);
+                    // Adiciona o player listado na playerList da room
+                    pList.playerList.push(p);
+
+                    console.log("room.playerList amount: "+room.playerList.length);
+
+                
+                });
+
+                // Reset list
+                if(playersAmount==2){
+                    wait1v1List=[];
+                    console.log("wait1v1List amount: "+wait1v1List.length);
+                }
+                if(playersAmount==4){
+                    wait2v2List=[];
+                    console.log("wait2v2List amount: "+wait2v2List.length);
+                }
+                if(playersAmount==8){
+                    wait4v4List=[];
+                    console.log("wait4v4List amount: "+wait4v4List.length);
+                }
+                
+                
+                //(evento) retornar um evento de partida encontrada
+                // Adicionar a room IO na roomList
+                roomList.push(room);
+                console.log("\n\n ROOM: ======================================================");
+                console.log(room);
+                // Envia para todos da room o pacote com a tag de evento start_match
+                io.to(roomID).emit("start_match",pList);
+            }
+        }
+    }
+}
 
 
     socket.on('player_find_match', (data)=>{
         //data = playerID=int,gameMode=string
         var player = GetPlayerFromID(data.playerID);
-
         console.log("\nO player: "+player.name+"("+player.ID+")"+" iniciou uma busca por partida.");
-
-        isMatch=false;
         switch (data.gameMode) {
             case "1v1":
-                var list = wait1v1List;
-                var playersAmount = 1*2;
-
-                if(player){
-                    if (list.length < playersAmount-1 && !list.includes(player)) {
-                        // adicionar o player na lista de espera do modo de jogo com um tempo de retorno
-                        console.log("\nO player: "+player.name+"("+player.ID+")"+" entrou na lista de espera.");
-                        list.push(player);
-                        break;
-                    }
-
-                    //verifica na lista do modo de jogo a quantidade de jogadores ideal
-                    if(list.length = playersAmount-1){
-                        console.log("\nO player: "+player.name+"("+player.ID+")"+" começou uma partida (1x1).");
-                        let roomID = GeneratorID();
-                        let sock = GetSocketBySocketID(player.socketID);
-
-                        // Cria ar sala ao dar join
-                        sock.join(roomID);
-                        
-                        // pega a room IO pelo nome
-                        const rooms = io.of("/").adapter.rooms;
-                        const room = rooms.get(roomID)
-                    
-                        // Adiciona as keys na room
-                        room.ID=roomID;
-                        room.name="MatchRoom";
-                        room.playerMax=2;
-                        room.playerList=[];
-                        room.playerInfoList=[];
-                        room.isRunning=false;
-
-                        // Adiciona o player na playerList da room
-                        room.playerList.push(player);
-
-                        // Cria pacote
-                        var pList = {
-                            roomID:0,
-                            playerList:[]
-                        }
-
-                        // Preenche o pacote
-                        pList.roomID=roomID;
-                        pList.playerList.push(player);
-
-                        // Lista a list
-                        list.forEach(p => {
-                            // Pega o socket do player listado
-                            let sock2 = GetSocketBySocketID(p.socketID);
-                            // O player listado entra na room
-                            sock2.join(roomID);
-                            console.log("\nO player: "+p.name+"("+p.ID+")"+" entrou na partida partida (1x1). da matchRoom("+room.ID+")");
-                            // Adiciona o player listado na playerList da room
-                            room.playerList.push(p);
-
-                            // Adiciona o player listado na playerList da room
-                            pList.playerList.push(p);
-
-
-
-                            console.log("room.playerList amount: "+room.playerList.length);
-                            
-                            
-                        });
-
-                        // Reset list
-                        wait1v1List=[];
-                        console.log("wait1v1List amount: "+wait1v1List.length);
-                        //(evento) retornar um evento de partida encontrada
-                        // Adicionar a room IO na roomList
-                        roomList.push(room);
-                        console.log("\n\n ROOM: ======================================================");
-                        console.log(room);
-                        // Envia para todos da room o pacote com a tag de evento start_match
-                        io.to(roomID).emit("start_match",pList);
-                    }
-
-                }
-                
-
+                FindMatchGameMode(player, wait1v1List, 1*2);
+                break;
+            case "2v2":
+                FindMatchGameMode(player, wait1v1List, 2*2);
+                break;
+            case "4v4":
+                FindMatchGameMode(player, wait1v1List, 4*2);
                 break;
         
             default:
@@ -1106,6 +1112,7 @@ io.on('connection', (socket) => {
 
 
 
+
 	socket.on('disconnect', (reason) => {
         console.log("\n\ndisconnect ============================================================================================");
         console.log("Desconexão SocketID: "+socket.id);
@@ -1120,18 +1127,6 @@ io.on('connection', (socket) => {
 
         if(player){
             
-            
-            // roomList.forEach(room => {
-                //     if (room.playerList.includes(player)) {
-                    //         room.playerList.splice(GetIndex(room.playerList,player),1);
-                    //         socket.emit("room_update",room);
-                    //         socket.broadcast.emit("room_update",room);
-                    //         UpdatePlayersInRoom(room);
-                    //         lastRoom=room
-                    
-                    //     }
-                    // })
-
             roomList.forEach(room=>{
                 if (room.playerList.includes(player)) {
                     lastRoom=room;
@@ -1142,48 +1137,17 @@ io.on('connection', (socket) => {
             console.log("O player: "+player.name+"("+player.ID+")"+" foi desconectado.");
             //console.log("Removendo o player da roomID: "+player.roomID+".");
 
-            // lastRoom = GetRoomFromID(player.roomID);
             if(lastRoom){
                 console.log("LastRoom: "+lastRoom.name+"("+lastRoom.ID+")");
                 lastRoom.playerList.splice(GetIndex(lastRoom.playerList,player),1);
                 io.to(lastRoom.ID).emit("player_disconnected",player);
             }
-            
-
-
 
             playerList.splice(GetIndex(playerList,player),1)
             socketList.splice(GetIndex(socketList,socket),1)
         }
 
-///////////////////////////////////////////////////////////////////
-        // if (lastRoom && lastRoom.playerList.length>0) {
-                    
-        //     var pList = {
-        //         ID:0,
-        //         playerList:[]
-        //     }
-            
-        //     lastRoom.playerList.forEach(play => {
-                
-        //         pList.ID = lastRoom.ID;
-        //         pList.playerList = lastRoom.playerList;
-        //         io.to(play.socketID).emit('room_player_list', pList);
-        //         console.log("\nO player cliente: "+play.name+"("+play.ID+")"+" receberá a playersInRoom: "+lastRoom.playerList.length+" numeros de players");
-        //     });
-
-            
-
-        // }
-////////////////////////////////////////////////////////////
-
-
         RemoveInactiveRoom(socket);
-
-
-
-
-
 
         //socket.emit("server_info",Server_info());
         socket.broadcast.emit("server_info",Server_info());
