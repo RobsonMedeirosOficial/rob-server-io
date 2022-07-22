@@ -700,7 +700,7 @@ io.on('connection', (socket) => {
     //#region  GAMEPLAY UPDATE =======================================================================================
     socket.on('player_pos', async (data) => {
         //console.log(data);
-        io.to(data.roomID).emit("player_pos",data);
+        socket.to(data.roomID).emit("player_pos",data);
     });
 
     socket.on('player_shoot', (data) => {
@@ -837,13 +837,13 @@ io.on('connection', (socket) => {
 
     socket.on('player_rot', async (data) => {
     
-        io.to(data.roomID).emit("player_rot",data);
+        socket.to(data.roomID).emit("player_rot",data);
         
     });
 
     socket.on('player_anims', async(data) => {
         
-        io.to(data.roomID).emit("player_anims",data);
+        socket.to(data.roomID).emit("player_anims",data);
 
     });
 
